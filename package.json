@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "FalconHUD — Claude Code қолданысын, лимиттерді, фондағы агенттерді және компьютер күйін нақты уақытта көрсететін қалқымалы виджет",
   "main": "src/main.js",
-  "author": "FALCON",
+  "author": "jambyylf",
   "license": "MIT",
   "private": true,
   "scripts": {

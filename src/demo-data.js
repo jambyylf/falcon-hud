@@ -97,10 +97,10 @@ function demoUsage(now) {
       activeToday: 5,
       list: [
         { dir: 'demo-1', name: 'falcon-hud',   tokens: 48300000, cost: 36.10, lastActive: now - 20 * 1000 },
-        { dir: 'demo-2', name: 'kaspi-pay',    tokens: 31200000, cost: 24.80, lastActive: now - 3 * MIN },
-        { dir: 'demo-3', name: 'bilim-web',    tokens: 18700000, cost: 14.20, lastActive: now - 26 * MIN },
-        { dir: 'demo-4', name: 'tulpar-bot',   tokens: 9400000,  cost: 6.90,  lastActive: now - 71 * MIN },
-        { dir: 'demo-5', name: 'sahna-render', tokens: 4100000,  cost: 2.30,  lastActive: now - 2 * 60 * MIN },
+        { dir: 'demo-2', name: 'demo-api',     tokens: 31200000, cost: 24.80, lastActive: now - 3 * MIN },
+        { dir: 'demo-3', name: 'demo-web',     tokens: 18700000, cost: 14.20, lastActive: now - 26 * MIN },
+        { dir: 'demo-4', name: 'demo-bot',     tokens: 9400000,  cost: 6.90,  lastActive: now - 71 * MIN },
+        { dir: 'demo-5', name: 'demo-worker',  tokens: 4100000,  cost: 2.30,  lastActive: now - 2 * 60 * MIN },
       ],
     },
   };
@@ -126,7 +126,7 @@ function demoAgents(now) {
       {
         sessionId: 'demo-session-2',
         projectDir: 'demo-2',
-        project: 'kaspi-pay',
+        project: 'demo-api',
         model: 'claude-fable-5-1',
         modelLabel: 'Fable 5.1',
         lastTool: { tool: 'Bash', detail: 'npm test -- checkout', ts: now - 9000 },
