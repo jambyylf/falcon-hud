@@ -1,0 +1,75 @@
+{
+  "name": "falcon-hud",
+  "version": "1.0.0",
+  "description": "FalconHUD — Claude Code қолданысын, лимиттерді, фондағы агенттерді және компьютер күйін нақты уақытта көрсететін қалқымалы виджет",
+  "main": "src/main.js",
+  "author": "FALCON",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/launch.js",
+    "dev": "node scripts/launch.js --dev",
+    "build:win": "electron-builder --win --x64",
+    "build:mac": "electron-builder --mac",
+    "build:all": "electron-builder -mw"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.3",
+    "systeminformation": "^5.27.11"
+  },
+  "devDependencies": {
+    "electron": "41.3.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "kz.falcon.hud",
+    "productName": "FalconHUD",
+    "files": [
+      "src/**/*",
+      "pricing.json",
+      "build/icon.png",
+      "build/icon.ico",
+      "build/tray.png",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "pricing.json",
+        "to": "pricing.json"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "FalconHUD"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.developer-tools"
+    },
+    "directories": {
+      "output": "dist"
+    }
+  }
+}

@@ -1,0 +1,75 @@
+# ═══════════ Тәуелділіктер ═══════════
+node_modules/
+.npm/
+.pnpm-store/
+# package-lock.json ӘДЕЙІ жабылмайды — ол болса, басқа компьютерде де
+# кітапханалардың дәл сол нұсқалары орнатылады.
+
+# ═══════════ Жинақтау нәтижесі (ең үлкен файлдар осында) ═══════════
+dist/
+out/
+release/
+build/Release/
+*.exe
+*.dmg
+*.pkg
+*.msi
+*.zip
+*.7z
+*.blockmap
+*.asar
+*.nsis.7z
+# Ескерту: build/ ішіндегі icon.ico, icon.png, tray.png — керек файлдар,
+# олар жабылмайды. Тек жинақталған орнатушылар ғана жабылады.
+
+# ═══════════ ҚҰПИЯ ДЕРЕК — ЕШҚАШАН git-ке түспеуі керек ═══════════
+.credentials.json
+*credentials*.json
+*credential*
+*.pem
+*.key
+*.p12
+*.pfx
+.env
+.env.*
+!.env.example
+*secret*
+*token*.json
+id_rsa*
+*.keystore
+
+# ═══════════ FalconHUD өз файлдары (жеке дерек) ═══════════
+history.json
+window-state.json
+parser-issues.log
+falconhud/
+usage-cache.json
+limits-cache.json
+falcon-hud-state.json
+
+# ═══════════ Кэш және лог ═══════════
+.cache/
+cache/
+.tmp/
+tmp/
+*.tmp
+*.log
+logs/
+npm-debug.log*
+yarn-error.log*
+.eslintcache
+
+# ═══════════ Операциялық жүйе ═══════════
+.DS_Store
+._*
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ═══════════ Редактор ═══════════
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

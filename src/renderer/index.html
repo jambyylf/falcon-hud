@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; font-src 'self';">
+  <title>FalconHUD</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-mode="full">
+
+<div class="hud">
+
+  <!-- ═══════════ ЖОҒАРҒЫ ЖОЛАҚ (сүйреу аймағы) ═══════════ -->
+  <header class="bar" id="bar">
+    <div class="bar-id" id="brand" title="Жаңарту">
+      <span class="beacon beacon--sm" id="live"></span>
+      <span class="wordmark">Falcon<b>HUD</b></span>
+    </div>
+    <div class="bar-actions">
+      <button class="gbtn" id="btn-pin"  title="Барлық терезенің үстінде"></button>
+      <button class="gbtn" id="btn-mode" title="Шағын / Толық режим"></button>
+      <button class="gbtn" id="btn-hide" title="Жасыру · Ctrl+Alt+H"></button>
+    </div>
+  </header>
+
+  <!-- ═══════════ ЕСКЕРТУ ЖОЛАҚТАРЫ ═══════════ -->
+  <div class="banners" id="banners"></div>
+
+  <!-- ═══════════ ШАҒЫН РЕЖИМ ═══════════ -->
+  <section class="mini" id="mini">
+
+    <div class="mini-rings">
+      <div class="ring" id="ring-5h">
+        <div class="ring-wrap">
+          <svg class="ring-svg" viewBox="0 0 56 56" aria-hidden="true">
+            <circle class="ring-track" cx="28" cy="28" r="23"/>
+            <circle class="ring-arc"   cx="28" cy="28" r="23"/>
+          </svg>
+          <span class="ring-pct num" data-num>—</span>
+        </div>
+        <span class="ring-cap">5 сағ</span>
+        <span class="ring-reset num" data-num>—</span>
+      </div>
+
+      <div class="ring" id="ring-week">
+        <div class="ring-wrap">
+          <svg class="ring-svg" viewBox="0 0 56 56" aria-hidden="true">
+            <circle class="ring-track" cx="28" cy="28" r="23"/>
+            <circle class="ring-arc"   cx="28" cy="28" r="23"/>
+          </svg>
+          <span class="ring-pct num" data-num>—</span>
+        </div>
+        <span class="ring-cap">Апта</span>
+        <span class="ring-reset num" data-num>—</span>
+      </div>
+    </div>
+
+    <div class="mini-side">
+      <div class="mini-agents">
+        <span class="beacon" id="mini-beacon"></span>
+        <span class="mini-agents-num num" id="mini-agents" data-num>—</span>
+        <span class="mini-agents-cap">белсенді агент</span>
+      </div>
+
+      <div class="mini-meter" id="mini-cpu">
+        <div class="mini-meter-top">
+          <span class="mini-meter-cap">CPU</span>
+          <span class="mini-meter-val num" data-num>—</span>
+        </div>
+        <div class="track track--xs"><i></i></div>
+      </div>
+
+      <div class="mini-meter" id="mini-ram">
+        <div class="mini-meter-top">
+          <span class="mini-meter-cap">RAM</span>
+          <span class="mini-meter-val num" data-num>—</span>
+        </div>
+        <div class="track track--xs"><i></i></div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ═══════════ ТОЛЫҚ РЕЖИМ ═══════════ -->
+  <main class="full" id="full">
+
+    <!-- ─────── 1. Лимиттер ─────── -->
+    <section class="panel">
+      <h2 class="phead">
+        <span class="phead-l"><i class="ic" data-ic="gauge"></i>Лимиттер</span>
+        <span class="phead-r" id="limits-note"></span>
+      </h2>
+      <div id="limits-body" class="stack">
+        <div class="blank">Жүктелуде…</div>
+      </div>
+    </section>
+
+    <!-- ─────── 2. Токендер ─────── -->
+    <section class="panel">
+      <h2 class="phead">
+        <span class="phead-l"><i class="ic" data-ic="hash"></i>Токендер</span>
+        <span class="phead-r" id="usage-note"></span>
+      </h2>
+
+      <div class="seg" id="usage-tabs">
+        <button class="seg-btn is-on" data-win="last5h">5 сағ</button>
+        <button class="seg-btn" data-win="today">Бүгін</button>
+        <button class="seg-btn" data-win="week">Апта</button>
+        <button class="seg-btn" data-win="days30">30 күн</button>
+      </div>
+
+      <div id="u-content">
+        <div class="tok-top">
+          <div class="tok-sum">
+            <span class="tok-num num" id="u-total" data-num>—</span>
+            <span class="tok-unit">токен</span>
+          </div>
+          <span class="tok-cost num" id="u-cost" data-num>—</span>
+        </div>
+
+        <div class="stackbar" id="u-stack"></div>
+        <div class="legend" id="u-legend"></div>
+
+        <div class="chips" id="u-breakdown"></div>
+      </div>
+
+      <!-- Тарих әлі жиналмағанда көрінеді -->
+      <div id="u-pending" class="blank" hidden>Тарих жиналып жатыр</div>
+    </section>
+
+    <!-- ─────── 3. Белсенді агенттер ─────── -->
+    <section class="panel">
+      <h2 class="phead">
+        <span class="phead-l"><i class="ic" data-ic="bot"></i>Белсенді агенттер</span>
+        <span class="phead-r" id="a-note"></span>
+      </h2>
+      <div id="a-body" class="stack">
+        <div class="blank">Жүктелуде…</div>
+      </div>
+    </section>
+
+    <!-- ─────── 4. Жобалар ─────── -->
+    <section class="panel">
+      <h2 class="phead">
+        <span class="phead-l"><i class="ic" data-ic="folder"></i>Жобалар</span>
+        <span class="phead-r" id="p-note"></span>
+      </h2>
+      <div id="p-body" class="stack stack--tight">
+        <div class="blank">Жүктелуде…</div>
+      </div>
+    </section>
+
+    <!-- ─────── 5. Компьютер ─────── -->
+    <section class="panel panel--last">
+      <h2 class="phead">
+        <span class="phead-l"><i class="ic" data-ic="cpu"></i>Компьютер</span>
+        <span class="phead-r" id="sys-note"></span>
+      </h2>
+      <div id="sys-body" class="stack"></div>
+      <div id="sys-extra" class="chips"></div>
+    </section>
+
+  </main>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

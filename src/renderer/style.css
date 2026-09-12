@@ -1,0 +1,747 @@
+/* ════════════════════════════════════════════════════════════════════
+   FalconHUD — қараңғы «шыны HUD» стилі
+   Барлық анимация тек transform/opacity арқылы (CPU жемейді).
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ─────────── Қаріп: Inter (жергілікті, сыртқы сұраныссыз) ─────────── */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('fonts/inter-cyrillic-ext-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('fonts/inter-cyrillic-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('fonts/inter-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+                 U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC,
+                 U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ─────────────────────────── Айнымалылар ─────────────────────────── */
+:root {
+  --glass:      rgba(11, 11, 18, 0.85);   /* #0B0B12 / 85% */
+  --edge:       rgba(255, 255, 255, 0.08);
+  --edge-soft:  rgba(255, 255, 255, 0.05);
+  --fill:       rgba(255, 255, 255, 0.035);
+  --fill-hi:    rgba(255, 255, 255, 0.07);
+  --rail:       rgba(255, 255, 255, 0.09);
+
+  --accent:     #8B5CF6;
+  --accent-dim: rgba(139, 92, 246, 0.16);
+  --accent-line:rgba(139, 92, 246, 0.34);
+
+  --ok:         #22C55E;
+  --warn:       #EAB308;
+  --bad:        #EF4444;
+
+  --ink:        #EDEEF5;
+  --ink-2:      #9BA0B4;
+  --ink-3:      #646A80;
+
+  --r-lg: 16px;
+  --r-md: 10px;
+  --r-sm: 7px;
+
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* ────────────────────────────── Негіз ────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* hidden атрибуты ӘРҚАШАН жасыруы керек.
+   Онсыз .blank/.subs сияқты display: flex қойылған элементтер жасырылмай қалады. */
+[hidden] { display: none !important; }
+
+html, body {
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text',
+               'Segoe UI', Roboto, sans-serif;
+  font-size: 12px;
+  font-feature-settings: 'cv05' 1;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+}
+
+/* Сандар секірмеуі үшін — бекітілген ені бар цифрлар */
+.num, .track, .stackbar, .ring, .spark-box,
+.tok-num, .tok-cost, .chip-v, .row-val, .lim-pct {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'cv05' 1;
+}
+
+/* ─────────────────────────── Карточка ─────────────────────────── */
+.hud {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--glass);
+  border: 1px solid var(--edge);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+/* ───────────────────────── Жоғарғы жолақ ───────────────────────── */
+.bar {
+  -webkit-app-region: drag;
+  flex: 0 0 auto;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 5px 0 11px;
+  border-bottom: 1px solid var(--edge-soft);
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0));
+}
+
+.bar-id {
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  padding: 3px 4px 3px 0;
+  border-radius: var(--r-sm);
+}
+.bar-id:active { transform: scale(0.97); }
+
+.wordmark {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  color: var(--ink-2);
+}
+.wordmark b { color: var(--accent); font-weight: 700; }
+
+.bar-actions { -webkit-app-region: no-drag; display: flex; gap: 1px; }
+
+.gbtn {
+  width: 24px; height: 24px;
+  display: grid; place-items: center;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background 120ms var(--ease), color 120ms var(--ease), transform 120ms var(--ease);
+}
+.gbtn:hover { background: var(--fill-hi); color: var(--ink); }
+.gbtn:active { transform: scale(0.9); }
+.gbtn.is-on { color: var(--accent); background: var(--accent-dim); }
+
+.ic { display: inline-flex; width: 14px; height: 14px; flex: 0 0 auto; }
+.ic svg { width: 100%; height: 100%; display: block; }
+
+/* ───────────────────────── Тірі индикатор ───────────────────────── */
+.beacon {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+  flex: 0 0 auto;
+  position: relative;
+}
+.beacon::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: inherit;
+  animation: beat 2s var(--ease) infinite;
+}
+.beacon--sm { width: 6px; height: 6px; }
+.beacon.is-idle { background: var(--ink-3); }
+.beacon.is-idle::after { animation: none; opacity: 0; }
+
+@keyframes beat {
+  0%   { transform: scale(1);   opacity: 0.65; }
+  70%  { transform: scale(2.6); opacity: 0; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+
+/* ═════════════════════ Ескерту жолақтары ═════════════════════ */
+.banners { flex: 0 0 auto; }
+.banners:empty { display: none; }
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  background: rgba(234, 179, 8, 0.15);
+  border-bottom: 1px solid rgba(234, 179, 8, 0.32);
+  color: #FDE68A;
+}
+.banner .ic { width: 12px; height: 12px; flex: 0 0 auto; color: var(--warn); }
+.banner-txt {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ДЕМО жолағы — көзге бірден түсуі керек, шатастырып алмау үшін */
+.banner--demo {
+  background: rgba(234, 179, 8, 0.2);
+  color: #FEF3C7;
+  letter-spacing: 0.6px;
+}
+.banner--demo .banner-txt { font-weight: 700; }
+
+/* Шағын режимде орын тар — жолақ та жіңішке болады */
+body[data-mode="compact"] .banner { padding: 3px 10px; font-size: 8.5px; gap: 5px; }
+body[data-mode="compact"] .banner .ic { width: 10px; height: 10px; }
+
+/* ─────────────────────── Режимді ауыстыру ─────────────────────── */
+.mini { display: none; }
+.full { display: block; }
+body[data-mode="compact"] .mini { display: flex; }
+body[data-mode="compact"] .full { display: none; }
+
+/* ═══════════════════════════ ШАҒЫН РЕЖИМ ═══════════════════════════ */
+.mini {
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 11px 9px;
+  min-height: 0;
+}
+
+.mini-rings { display: flex; gap: 12px; flex: 0 0 auto; }
+
+.ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 48px;
+}
+
+.ring-wrap { position: relative; width: 48px; height: 48px; }
+
+.ring-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring-track {
+  fill: none;
+  stroke: var(--rail);
+  stroke-width: 5;
+}
+.ring-arc {
+  fill: none;
+  stroke: var(--ok);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 144.5;
+  stroke-dashoffset: 144.5;
+  transition: stroke-dashoffset 400ms var(--ease), stroke 260ms var(--ease);
+}
+.ring-arc.lv-warn { stroke: var(--warn); }
+.ring-arc.lv-bad  { stroke: var(--bad); }
+
+.ring-pct {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.ring-cap {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  line-height: 1;
+}
+.ring-reset { font-size: 8.5px; color: var(--ink-3); line-height: 1; }
+
+.mini-side {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.mini-agents { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.mini-agents .beacon { align-self: center; }
+.mini-agents-num { font-size: 19px; font-weight: 700; line-height: 1; letter-spacing: -0.5px; }
+.mini-agents-cap {
+  font-size: 9px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-meter { display: flex; flex-direction: column; gap: 3px; }
+.mini-meter-top { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.mini-meter-cap {
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--ink-3);
+}
+.mini-meter-val { font-size: 10px; font-weight: 600; color: var(--ink-2); }
+
+/* ════════════════════════ Прогресс жолақтары ════════════════════════ */
+.track {
+  position: relative;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--rail);
+  overflow: hidden;
+}
+.track--xs { height: 3px; }
+.track--lg { height: 6px; }
+
+.track > i {
+  display: block;
+  position: absolute;
+  inset: 0;
+  border-radius: 99px;
+  background: var(--ok);
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform 400ms var(--ease), background-color 260ms var(--ease);
+  will-change: transform;
+}
+.track.lv-warn > i { background: var(--warn); }
+.track.lv-bad  > i { background: var(--bad); }
+
+/* 80%-дан асқанда ақырын пульсация (тек opacity) */
+.track.is-hot > i { animation: hot 2.2s ease-in-out infinite; }
+@keyframes hot { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* ═══════════════════════════ ТОЛЫҚ РЕЖИМ ═══════════════════════════ */
+.full {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+.full::-webkit-scrollbar { width: 8px; }
+.full::-webkit-scrollbar-track { background: transparent; }
+.full::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.full::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.24);
+  background-clip: padding-box;
+}
+
+.panel { padding: 11px 12px 13px; border-bottom: 1px solid var(--edge-soft); }
+.panel--last { border-bottom: 0; padding-bottom: 14px; }
+
+.phead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+.phead-l {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.phead-l .ic { color: var(--accent); width: 12px; height: 12px; }
+.phead-r {
+  font-size: 9.5px;
+  font-weight: 500;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.phead-r b { color: var(--ink-2); font-weight: 600; }
+.phead-r.is-warn { color: var(--warn); }
+
+.stack { display: flex; flex-direction: column; gap: 9px; }
+.stack--tight { gap: 5px; }
+
+.blank {
+  font-size: 10.5px;
+  color: var(--ink-3);
+  padding: 9px 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  justify-content: center;
+}
+.blank .ic { width: 13px; height: 13px; opacity: 0.7; }
+
+/* ─────────────────────────── 1. Лимиттер ─────────────────────────── */
+.lim { display: flex; flex-direction: column; gap: 4px; }
+.lim-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.lim-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lim-pct { font-size: 11.5px; font-weight: 700; flex: 0 0 auto; }
+.lim-pct.lv-ok   { color: var(--ok); }
+.lim-pct.lv-warn { color: var(--warn); }
+.lim-pct.lv-bad  { color: var(--bad); }
+.lim-foot { font-size: 9.5px; color: var(--ink-3); }
+.lim-foot .dot { opacity: 0.5; margin: 0 4px; }
+
+/* ─────────────────────────── 2. Токендер ─────────────────────────── */
+.seg {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--fill);
+  border: 1px solid var(--edge-soft);
+  border-radius: 9px;
+  margin-bottom: 10px;
+}
+.seg-btn {
+  flex: 1 1 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  border-radius: 7px;
+  padding: 4px 2px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 120ms var(--ease), background 120ms var(--ease);
+}
+.seg-btn:hover { color: var(--ink-2); }
+.seg-btn.is-on {
+  background: var(--accent-dim);
+  color: #C4B5FD;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+.tok-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+.tok-sum { display: flex; align-items: baseline; gap: 5px; min-width: 0; }
+.tok-num { font-size: 24px; font-weight: 700; line-height: 1; letter-spacing: -0.8px; }
+.tok-unit { font-size: 9.5px; color: var(--ink-3); }
+.tok-cost { font-size: 14px; font-weight: 700; color: var(--accent); flex: 0 0 auto; }
+
+/* Модель бойынша жиналған (stacked) жолақ */
+.stackbar {
+  position: relative;
+  height: 8px;
+  border-radius: 99px;
+  background: var(--rail);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.stackbar > i {
+  position: absolute;
+  left: 0; top: 0;
+  width: 100%; height: 100%;
+  transform-origin: left center;
+  transform: translateX(0) scaleX(0);
+  transition: transform 400ms var(--ease);
+  will-change: transform;
+}
+
+.legend { display: flex; flex-wrap: wrap; gap: 4px 11px; margin-bottom: 9px; }
+.leg {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9.5px;
+  color: var(--ink-2);
+  min-width: 0;
+}
+.leg-dot { width: 6px; height: 6px; border-radius: 2px; flex: 0 0 auto; }
+.leg-name { font-weight: 500; }
+.leg-val { color: var(--ink-3); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 3px 7px;
+  background: var(--fill);
+  border: 1px solid var(--edge-soft);
+  border-radius: 99px;
+  font-size: 9.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.chip-v { color: var(--ink-2); font-weight: 600; }
+
+/* ────────────────────── 3. Белсенді агенттер ────────────────────── */
+.sess {
+  border: 1px solid var(--edge-soft);
+  border-radius: var(--r-md);
+  background: var(--fill);
+  overflow: hidden;
+}
+.sess-main { display: flex; align-items: center; gap: 8px; padding: 8px 9px; }
+
+.sess-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin-bottom: 3px;
+}
+.sess-name {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.badge {
+  flex: 0 0 auto;
+  font-size: 8.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  padding: 1.5px 6px;
+  border-radius: 99px;
+  border: 1px solid currentColor;
+  opacity: 0.95;
+}
+
+.sess-act {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9.5px;
+  color: var(--ink-3);
+  min-width: 0;
+}
+.sess-act-ic { display: inline-flex; flex: 0 0 auto; }
+.sess-act .ic { width: 11px; height: 11px; flex: 0 0 auto; opacity: 0.85; }
+.sess-act-tool { color: var(--ink-2); font-weight: 600; flex: 0 0 auto; }
+.sess-act-txt {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.sess-body { flex: 1 1 auto; min-width: 0; }
+
+.sess-timer {
+  flex: 0 0 auto;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.sess-time { font-size: 11px; font-weight: 600; color: var(--ink-2); }
+.sess-since { font-size: 8.5px; color: var(--ink-3); }
+
+/* Subagent-тер — шегініспен, сол жақ бағыттауышпен */
+.subs {
+  border-top: 1px solid var(--edge-soft);
+  padding: 6px 9px 7px 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.sub {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding-left: 12px;
+  position: relative;
+  min-width: 0;
+}
+.sub::before {
+  content: '';
+  position: absolute;
+  left: 3px; top: 50%;
+  width: 5px; height: 5px;
+  margin-top: -2.5px;
+  border-left: 1px solid var(--edge);
+  border-bottom: 1px solid var(--edge);
+  border-bottom-left-radius: 3px;
+}
+.sub-body { flex: 1 1 auto; min-width: 0; }
+.sub-head { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.sub-type {
+  flex: 0 0 auto;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-dim);
+  padding: 1px 5px;
+  border-radius: 99px;
+}
+.sub-desc {
+  font-size: 10px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.sub-meta { font-size: 8.5px; color: var(--ink-3); margin-top: 1px; }
+.sub-side { flex: 0 0 auto; text-align: right; }
+.sub-tok { font-size: 9.5px; font-weight: 600; color: var(--ink-2); }
+.sub-time { font-size: 8.5px; color: var(--ink-3); }
+
+/* ─────────────────────────── 4. Жобалар ─────────────────────────── */
+.proj { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.proj-rank {
+  flex: 0 0 auto;
+  width: 14px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--ink-3);
+  text-align: center;
+}
+.proj-body { flex: 1 1 auto; min-width: 0; }
+.proj-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+.proj-name {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.proj-val { flex: 0 0 auto; font-size: 10px; font-weight: 600; color: var(--ink-2); }
+.proj-cost { font-size: 9px; color: var(--ink-3); margin-left: 5px; font-weight: 500; }
+.proj .track > i { background: var(--accent); }
+
+/* ────────────────────────── 5. Компьютер ────────────────────────── */
+.met { display: flex; align-items: center; gap: 9px; min-width: 0; }
+
+.met-ic {
+  flex: 0 0 auto;
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border-radius: 8px;
+  background: var(--fill);
+  border: 1px solid var(--edge-soft);
+  color: var(--ink-2);
+}
+.met-ic .ic { width: 13px; height: 13px; }
+
+.met-body { flex: 1 1 auto; min-width: 0; }
+.met-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+.met-name {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.met-val { flex: 0 0 auto; font-size: 11px; font-weight: 700; }
+.met-val.lv-ok   { color: var(--ink); }
+.met-val.lv-warn { color: var(--warn); }
+.met-val.lv-bad  { color: var(--bad); }
+.met-sub {
+  font-size: 8.5px;
+  color: var(--ink-3);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Sparkline — соңғы 60 секунд */
+.spark-box {
+  flex: 0 0 auto;
+  width: 62px;
+  height: 24px;
+  opacity: 0.95;
+}
+.spark { width: 100%; height: 100%; display: block; overflow: visible; }
+.spark-fill { opacity: 0.16; }
+.spark-line { fill: none; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+
+/* ═══════════════════════════ Қозғалыс ═══════════════════════════ */
+
+/* Сан өзгергенде — 200 мс жұмсақ ауысу */
+@keyframes tick {
+  from { opacity: 0.35; transform: translateY(-2px); }
+  to   { opacity: 1;    transform: translateY(0); }
+}
+.num.is-tick { animation: tick 200ms var(--ease); }
+
+/* Жаңа агент / жол — fade-in */
+@keyframes fadein {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.is-new { animation: fadein 260ms var(--ease); }
+
+/* Қозғалысты азайту режимі */
+@media (prefers-reduced-motion: reduce) {
+  *, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ═══════════════════════════ Тар экран ═══════════════════════════ */
+@media (max-width: 344px) {
+  .spark-box { width: 46px; }
+  .tok-num { font-size: 21px; }
+  .legend { gap: 3px 8px; }
+}
