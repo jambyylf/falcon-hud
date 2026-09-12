@@ -28,7 +28,7 @@ function exists(p) {
   try { fs.accessSync(p); return true; } catch { return false; }
 }
 
-// "c--Users-FALCON-Documents-falcon-hud" → "falcon-hud"
+// "c--Users-<username>-Documents-my-app" → "my-app"
 // Claude Code жол атын кодтап сақтайды: бөлгіштер "-" болып өзгереді, сондықтан
 // жоба атының өзіндегі "-" мен жол бөлгішін ажырату мүмкін емес. Ең сенімді
 // дереккөз — .jsonl ішіндегі "cwd" өрісі; бұл функция тек резерв ретінде керек.
@@ -45,7 +45,7 @@ function projectDirToName(dirName) {
   const user = (os.userInfo().username || '').toLowerCase();
   // Басындағы қызметтік бөліктерді (диск әрпі, Users, қолданушы аты, Documents…) тастаймыз.
   // Қолданушы аты тек "users" сөзінен кейін келгенде ғана тасталады — әйтпесе
-  // "falcon-hud" сияқты жоба аты қырқылып қалады.
+  // аты қолданушы атынан басталатын жоба ("<username>-app" сияқты) қырқылып қалады.
   let i = 0;
   let prevWasUsers = false;
   while (i < parts.length - 1) {
