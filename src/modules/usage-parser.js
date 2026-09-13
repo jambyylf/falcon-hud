@@ -464,10 +464,50 @@ function summary() {
 
 function rawEvents() { return state.events; }
 
+// Бір жобаның бөлшегі: модель бойынша бөлініс, сессия саны, соңғы әрекет.
+// «Жобалар» тізімінде бір жобаны басқанда ашылатын панель үшін.
+function projectDetail(projectDir, sinceMs) {
+  const byModel = new Map();
+  const sessions = new Set();
+  let total = 0, cost = 0, lastActive = 0, name = null;
+
+  for (const ev of state.events) {
+    if (ev.projectDir !== projectDir) continue;
+    if (sinceMs && ev.ts < sinceMs) continue;
+
+    const t = ev.in + ev.out + ev.cw5 + ev.cw1h + ev.cr;
+    const c = eventCost(ev);
+    total += t;
+    cost += c;
+    name = ev.project || name;
+    if (ev.ts > lastActive) lastActive = ev.ts;
+    if (ev.sessionId) sessions.add(ev.sessionId);
+
+    let m = byModel.get(ev.model);
+    if (!m) {
+      m = { id: ev.model, label: modelLabel(ev.model), total: 0, cost: 0 };
+      byModel.set(ev.model, m);
+    }
+    m.total += t;
+    m.cost += c;
+  }
+
+  return {
+    projectDir,
+    name,
+    total,
+    cost,
+    lastActive,
+    sessionCount: sessions.size,
+    models: Array.from(byModel.values()).sort((a, b) => b.total - a.total),
+  };
+}
+
 module.exports = {
   loadPricing, getPricing, normalizeModel, modelLabel, modelRate,
   scan, startWatching, stopWatching, summary, rawEvents,
   startOfToday, startOfWeek, listJsonl,
   eventCost,          // тарих модулі құнды дәл осы формуламен санауы үшін
+  projectDetail,      // бір жобаның бөлшегі (басқанда ашылатын панель)
   health,             // parser тыныш бұзылуын бақылау
 };

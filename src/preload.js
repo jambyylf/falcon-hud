@@ -30,6 +30,9 @@ contextBridge.exposeInMainWorld('hud', {
   setAlwaysOnTop: (v) => ipcRenderer.invoke('hud:set-always-on-top', !!v),
   getWindowState: () => ipcRenderer.invoke('hud:get-window-state'),
 
+  // Жоба бөлшегі (тізімде жобаны басқанда)
+  projectDetail: (dir, name) => ipcRenderer.invoke('hud:project-detail', String(dir), String(name || '')),
+
   // --- Жаңарту оқиғаларына жазылу
   on: (channel, handler) => {
     if (!CHANNELS.includes(channel) || typeof handler !== 'function') return () => {};

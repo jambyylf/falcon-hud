@@ -285,6 +285,30 @@ function tickHealth() {
   }
 }
 
+// --------------------------------------------------------- ЖОБА БӨЛШЕГІ
+// «Жобалар» тізімінде бір жобаны басқанда: бүгінгі модель бөлінісі, сол жобада
+// жүрген сессиялар және соңғы 30 күндегі динамикасы.
+function projectDetail(projectDir, name) {
+  // Демо режимде — жасанды, бірақ шынайы көрінетін бөлшек
+  if (demo.on && demo.snapshot) {
+    return demoData.buildProjectDetail(projectDir, name);
+  }
+
+  const since = usage.startOfToday();
+  const detail = usage.projectDetail(projectDir, since);
+  const projName = name || detail.name || projectDir;
+
+  // Осы жобада жүрген сессиялар
+  const sessions = ((latest.agents && latest.agents.sessions) || [])
+    .filter((s) => s.projectDir === projectDir || s.project === projName)
+    .map((s) => ({ project: s.project, state: s.state, needsYou: s.needsYou, modelLabel: s.modelLabel }));
+
+  let days = [];
+  try { days = history.projectDays(projName, 30); } catch { days = []; }
+
+  return Object.assign({}, detail, { name: projName, sessions, days });
+}
+
 // --------------------------------------------------------------- IPC арналары
 
 function registerIpc() {
@@ -310,6 +334,9 @@ function registerIpc() {
   // «FalconHUD» жазуынан қолмен сүйреу
   ipcMain.handle('hud:drag-start', () => win.beginManualDrag());
   ipcMain.handle('hud:drag-end', () => win.endManualDrag());
+
+  // Жоба бөлшегі — тізімде бір жобаны басқанда ашылады
+  ipcMain.handle('hud:project-detail', (_e, projectDir, name) => projectDetail(projectDir, name));
   ipcMain.handle('hud:quit', () => { app.isQuiting = true; app.quit(); return true; });
 
   ipcMain.handle('hud:set-always-on-top', (_e, v) => win.setAlwaysOnTop(v));

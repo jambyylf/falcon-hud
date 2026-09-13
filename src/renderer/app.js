@@ -36,6 +36,7 @@ const ICONS = {
   alert:      '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
   flask:      '<path d="M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2"/><path d="M6.453 15h11.094"/><path d="M8.5 2h7"/>',
   calendar:   '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+  chevron:    '<path d="m9 18 6-6-6-6"/>',
 };
 
 // SVG иконка элементін жасау
@@ -339,6 +340,9 @@ const ui = {
   data: { usage: null, agents: null, limits: null, system: null, history: null },
   flags: { demo: false, demoEmpty: false, parserWarning: null },
   pinned: true,
+  openProject: null,          // ашық тұрған жоба бөлшегі (projectDir)
+  openProjectName: null,
+  openProjectPaintedAt: 0,    // жиі қайта салмау үшін
 };
 
 const LV_COLOR = { ok: '#22C55E', warn: '#EAB308', bad: '#EF4444' };
@@ -588,6 +592,8 @@ function renderProjects(d) {
 
   renderKeyed(body, items,
     (item) => {
+      const wrap = el('div', 'proj-wrap');
+
       const row = el('div', 'proj');
       row.appendChild(el('span', 'proj-rank'));
       const b = el('div', 'proj-body');
@@ -602,11 +608,175 @@ function renderProjects(d) {
       track.appendChild(document.createElement('i'));
       b.appendChild(track);
       row.appendChild(b);
-      updateProject(row, item);
-      return row;
+      row.appendChild(icon('chevron'));
+
+      // Басқанда бөлшегі ашылады / жабылады
+      row.addEventListener('click', () => toggleProject(wrap, item.p));
+
+      wrap.appendChild(row);
+      wrap.appendChild(el('div', 'proj-detail', ''));
+      wrap.querySelector('.proj-detail').hidden = true;
+
+      updateProject(wrap, item);
+      return wrap;
     },
     updateProject
   );
+
+  // Ашық тұрған панельді жаңа дерекпен жаңартамыз
+  if (ui.openProject) refreshOpenProject();
+}
+
+/* ═════════════════ Жоба бөлшегі (жолды басқанда ашылады) ═════════════════ */
+
+async function toggleProject(wrap, p) {
+  const panel = wrap.querySelector('.proj-detail');
+  const isOpen = !panel.hidden && ui.openProject === p.dir;
+
+  // Басқа ашық панельдерді жабамыз — бір мезгілде біреуі ғана ашық тұрсын
+  for (const other of document.querySelectorAll('.proj-detail')) {
+    if (other !== panel) { other.hidden = true; clear(other); }
+  }
+  for (const r of document.querySelectorAll('.proj')) r.classList.remove('is-open');
+
+  if (isOpen) {
+    panel.hidden = true;
+    clear(panel);
+    ui.openProject = null;
+    return;
+  }
+
+  ui.openProject = p.dir;
+  ui.openProjectName = p.name;
+  wrap.querySelector('.proj').classList.add('is-open');
+  panel.hidden = false;
+  clear(panel);
+  panel.appendChild(el('div', 'proj-loading', 'Оқылуда…'));
+
+  try {
+    const d = await window.hud.projectDetail(p.dir, p.name);
+    if (ui.openProject !== p.dir) return;      // бұл арада басқасы ашылды
+    paintProjectDetail(panel, d);
+  } catch {
+    clear(panel);
+    panel.appendChild(el('div', 'proj-loading', 'Бөлшегі оқылмады'));
+  }
+}
+
+async function refreshOpenProject() {
+  const dir = ui.openProject;
+  if (!dir) return;
+  const wrap = Array.from(document.querySelectorAll('.proj-wrap'))
+    .find((w) => w.dataset.key === dir);
+  if (!wrap) { ui.openProject = null; return; }
+  const panel = wrap.querySelector('.proj-detail');
+  if (!panel || panel.hidden) return;
+  wrap.querySelector('.proj').classList.add('is-open');
+
+  // Панельді 4 секунд сайын қайта салмаймыз — жыпылықтап тұрар еді
+  if (Date.now() - ui.openProjectPaintedAt < 6000) return;
+
+  try {
+    const d = await window.hud.projectDetail(dir, ui.openProjectName || '');
+    if (ui.openProject === dir) paintProjectDetail(panel, d);
+  } catch { /* келесі айналымда қайталанады */ }
+}
+
+function paintProjectDetail(panel, d) {
+  ui.openProjectPaintedAt = Date.now();
+  clear(panel);
+  if (!d) { panel.appendChild(el('div', 'proj-loading', 'Дерек жоқ')); return; }
+
+  // ── Жинақ жол: бүгінгі саны, сессия саны, соңғы әрекет
+  const head = el('div', 'pd-head');
+  head.appendChild(el('span', 'pd-sum', compact(d.total) + ' · ' + money(d.cost)));
+  const meta = [];
+  if (d.sessionCount) meta.push(d.sessionCount + ' сессия');
+  if (d.lastActive) meta.push('соңғы ' + clock(d.lastActive));
+  head.appendChild(el('span', 'pd-meta', meta.join(' · ')));
+  panel.appendChild(head);
+
+  // ── Осы жобада жүрген сессиялардың күйі
+  if (d.sessions && d.sessions.length) {
+    const row = el('div', 'pd-states');
+    for (const s of d.sessions) {
+      const ui2 = STATE_UI[s.state] || STATE_UI.working;
+      const pill = el('span', 'pd-state' + (s.needsYou ? ' is-needs' : ''));
+      const dot = el('span', 'beacon' + (ui2.beacon ? ' ' + ui2.beacon : ''));
+      pill.appendChild(dot);
+      pill.appendChild(el('span', null, ui2.label));
+      row.appendChild(pill);
+    }
+    panel.appendChild(row);
+  }
+
+  // ── Модель бойынша бөлініс (бүгін)
+  if (d.models && d.models.length) {
+    const box = el('div', 'pd-models');
+    const max = d.models[0].total || 1;
+    d.models.forEach((m, i) => {
+      const r = el('div', 'pd-model');
+      const dot = el('span', 'leg-dot');
+      dot.style.background = modelColor(m.id, i);
+      r.appendChild(dot);
+      r.appendChild(el('span', 'pd-model-name', m.label));
+      const bar = el('div', 'pd-model-bar');
+      const inner = el('i');
+      inner.style.width = ((m.total / max) * 100) + '%';
+      inner.style.background = modelColor(m.id, i);
+      bar.appendChild(inner);
+      r.appendChild(bar);
+      r.appendChild(el('span', 'pd-model-val', compact(m.total)));
+      r.appendChild(el('span', 'pd-model-cost', money(m.cost)));
+      box.appendChild(r);
+    });
+    panel.appendChild(box);
+  } else {
+    panel.appendChild(el('div', 'proj-loading', 'Бүгін дерек жоқ'));
+  }
+
+  // ── Соңғы 30 күн — баған-график
+  if (d.days && d.days.length) {
+    panel.appendChild(el('div', 'pd-cap', 'Соңғы 30 күн'));
+    panel.appendChild(buildDayBars(d.days));
+  }
+}
+
+// 30 күндік баған-график (SVG). Дерегі жоқ күндер — бос орын.
+function buildDayBars(days) {
+  const box = el('div', 'pd-bars');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 100 26');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.setAttribute('class', 'pd-bars-svg');
+
+  let max = 0;
+  for (const d of days) if (d.total > max) max = d.total;
+  if (max <= 0) max = 1;
+
+  const n = days.length;
+  const gap = 0.6;
+  const w = (100 - gap * (n - 1)) / n;
+
+  days.forEach((d, i) => {
+    const h = Math.max(d.total > 0 ? 1.2 : 0, (d.total / max) * 24);
+    if (h <= 0) return;
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', (i * (w + gap)).toFixed(2));
+    rect.setAttribute('y', (25 - h).toFixed(2));
+    rect.setAttribute('width', w.toFixed(2));
+    rect.setAttribute('height', h.toFixed(2));
+    rect.setAttribute('rx', '0.4');
+    // Соңғы күн — акцент түсі, қалғаны күңгірт
+    rect.setAttribute('fill', i === n - 1 ? '#8B5CF6' : 'rgba(139,92,246,0.42)');
+    svg.appendChild(rect);
+  });
+
+  box.appendChild(svg);
+  const peak = days.reduce((a, b) => (b.total > a.total ? b : a), days[0]);
+  box.appendChild(el('div', 'pd-bars-cap',
+    'ең көп: ' + compact(peak.total) + ' (' + peak.day.slice(5) + ')'));
+  return box;
 }
 
 function updateProject(row, item) {

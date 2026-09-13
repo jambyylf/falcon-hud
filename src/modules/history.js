@@ -229,8 +229,27 @@ function window30(labelOf) {
   };
 }
 
+// Бір жобаның соңғы N күндегі қатары. Дерегі жоқ күндер нөлмен толтырылады —
+// әйтпесе графикте күндер жылжып, суреті жалған болып шығар еді.
+function projectDays(name, days) {
+  const n = days || WINDOW_DAYS;
+  const d = state.data;
+  const out = [];
+
+  const DAY = 24 * 3600 * 1000;
+  const now = Date.now();
+
+  for (let i = n - 1; i >= 0; i--) {
+    const key = dayKey(now - i * DAY);
+    const day = d && d.days ? d.days[key] : null;
+    const p = day && day.projects ? day.projects[name] : null;
+    out.push({ day: key, total: p ? (p.total || 0) : 0, cost: p ? (p.cost || 0) : 0 });
+  }
+  return out;
+}
+
 module.exports = {
-  load, save, update, window30, appendLog,
+  load, save, update, window30, projectDays, appendLog,
   dataDir, historyFile, logFile, dayKey,
   WINDOW_DAYS,
 };

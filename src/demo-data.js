@@ -273,6 +273,58 @@ function demoSystem(now) {
   };
 }
 
+// ────────────────────────────────────────────────── ЖОБА БӨЛШЕГІ
+
+// Жобаны басқанда ашылатын панельдің демо дерегі
+function buildProjectDetail(projectDir, name) {
+  const now = Date.now();
+  const seedByDir = {
+    'demo-1': { k: 1.0, sess: 2 },
+    'demo-2': { k: 0.65, sess: 1 },
+    'demo-3': { k: 0.39, sess: 1 },
+    'demo-4': { k: 0.19, sess: 1 },
+    'demo-5': { k: 0.085, sess: 1 },
+  };
+  const seed = seedByDir[projectDir] || { k: 0.3, sess: 1 };
+  const b = bucket(models5(seed.k));
+
+  // 30 күндік динамика — тұрақты «кездейсоқ» (әр ашқанда бірдей көрінуі үшін)
+  const days = [];
+  const DAY = 24 * 3600 * 1000;
+  let h = 0;
+  for (let i = 0; i < String(projectDir).length; i++) h = (h * 31 + String(projectDir).charCodeAt(i)) >>> 0;
+  for (let i = 29; i >= 0; i--) {
+    h = (h * 1103515245 + 12345) >>> 0;
+    const wave = 0.45 + 0.55 * Math.abs(Math.sin(i / 4 + seed.k * 10));
+    const jitter = 0.55 + ((h >>> 16) % 90) / 100;
+    const total = Math.round(b.total * 0.9 * wave * jitter);
+    days.push({
+      day: new Date(now - i * DAY).toISOString().slice(0, 10),
+      total,
+      cost: Math.round((b.cost * 0.9 * wave * jitter) * 100) / 100,
+    });
+  }
+
+  const sessions = [];
+  if (projectDir === 'demo-1') sessions.push({ project: name, state: 'agent', needsYou: false, modelLabel: 'Opus 5' });
+  if (projectDir === 'demo-2') sessions.push({ project: name, state: 'working', needsYou: false, modelLabel: 'Fable 5.1' });
+  if (projectDir === 'demo-3') sessions.push({ project: name, state: 'waiting', needsYou: true, modelLabel: 'Opus 5' });
+  if (projectDir === 'demo-4') sessions.push({ project: name, state: 'asking', needsYou: true, modelLabel: 'Opus 5' });
+  if (projectDir === 'demo-5') sessions.push({ project: name, state: 'stalled', needsYou: true, modelLabel: 'Sonnet 5' });
+
+  return {
+    projectDir,
+    name,
+    total: b.total,
+    cost: b.cost,
+    lastActive: now - 20 * 1000,
+    sessionCount: seed.sess,
+    models: b.models.map((m) => ({ id: m.id, label: m.label, total: m.total, cost: m.cost })),
+    sessions,
+    days,
+  };
+}
+
 // ────────────────────────────────────────────────── 30 КҮНДІК ТАРИХ
 
 function demoHistory(now) {
@@ -334,4 +386,4 @@ function buildSystem(opts) {
   return sys;
 }
 
-module.exports = { buildStatic, buildSystem };
+module.exports = { buildStatic, buildSystem, buildProjectDetail };
