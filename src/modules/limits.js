@@ -79,12 +79,36 @@ function toMs(v) {
 }
 
 // Пайызды 0..100 аралығына келтіру (кейде 0..1 үлес түрінде келеді)
+// «percent» деп аталған өріс ӘРҚАШАН пайыз: 1 деген — бір пайыз.
+//
+// Бұрын мұнда «сан 1-ден кіші болса, бөлшек шығар» деген болжам тұрған еді
+// (0.23 → 23%). Ол қате болып шықты: API percent: 1 деп қайтарғанда, яғни
+// лимит жаңа ғана жаңарып, бір-ақ пайызы жұмсалғанда, виджет 100% деп
+// көрсететін. Ақау дәл ең маңызды сәтте — терезе жаңарғанда — шығатын.
+// Сондықтан бұл өрісті ЕШҚАШАН көбейтпейміз.
 function toPercent(v) {
   if (v == null) return null;
   const n = Number(v);
   if (!Number.isFinite(n)) return null;
-  if (n >= 0 && n <= 1) return n * 100;
   return n;
+}
+
+// Ал «utilization» деп аталған өріс бөлшек болуы мүмкін (0.23 = 23%) —
+// бұл атаудың жалпы қабылданған мағынасы сондай. Бірақ шешімді бір мәнге
+// қарап емес, бүкіл жауапқа қарап қабылдаймыз: ішінде 1-ден үлкен сан болса,
+// демек API пайызбен жазады.
+function toUtilization(v, allAreFractions) {
+  if (v == null) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return allAreFractions && n >= 0 && n <= 1 ? n * 100 : n;
+}
+
+// Жауаптағы utilization мәндерінің бәрі 1-ден кіші ме?
+function utilizationsAreFractions(values) {
+  const nums = values.map(Number).filter(Number.isFinite);
+  if (!nums.length) return false;
+  return nums.every((n) => n >= 0 && n <= 1);
 }
 
 function kindLabel(kind, modelName) {
@@ -121,12 +145,18 @@ function normalize(data) {
 
   // 1-нұсқа: limits массиві (жаңа пішім)
   if (data && Array.isArray(data.limits)) {
+    // utilization пішімін бір рет, бүкіл жауапқа қарап шешеміз
+    const fractions = utilizationsAreFractions(
+      data.limits.filter((l) => l && l.percent == null).map((l) => l && l.utilization)
+    );
     for (const l of data.limits) {
       if (!l || typeof l !== 'object') continue;
       const modelName =
         (l.scope && l.scope.model && (l.scope.model.display_name || l.scope.model.name)) ||
         (l.scope && l.scope.display_name) || null;
-      const pct = toPercent(l.percent != null ? l.percent : l.utilization);
+      const pct = l.percent != null
+        ? toPercent(l.percent)
+        : toUtilization(l.utilization, fractions);
       if (pct == null) continue;
       out.push({
         id: `${l.kind || 'limit'}:${modelName || 'all'}`,
@@ -142,11 +172,18 @@ function normalize(data) {
 
   // 2-нұсқа: five_hour / seven_day / seven_day_<model> өрістері (ескі пішім)
   if (!out.length && data && typeof data === 'object') {
+    const fbFractions = utilizationsAreFractions(
+      Object.keys(data)
+        .filter((k) => /^(five_hour|seven_day)/.test(k) && data[k] && data[k].percent == null)
+        .map((k) => data[k].utilization)
+    );
     for (const key of Object.keys(data)) {
       if (!/^(five_hour|seven_day)/.test(key)) continue;
       const v = data[key];
       if (!v || typeof v !== 'object') continue;
-      const pct = toPercent(v.utilization != null ? v.utilization : v.percent);
+      const pct = v.percent != null
+        ? toPercent(v.percent)
+        : toUtilization(v.utilization, fbFractions);
       if (pct == null) continue;
       out.push({
         id: key,
