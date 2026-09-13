@@ -132,6 +132,12 @@ function describeTool(block) {
 // Жауап күтетін құралдар: бұлар шыққанда сессия нақты СІЗДІ күтіп тұр
 const ASK_TOOLS = new Set(['AskUserQuestion', 'ExitPlanMode']);
 
+// «[Request interrupted by user]» — қолданушы кезекті өзі тоқтатқанының белгісі
+function isInterrupt(v) {
+  if (typeof v !== 'string') return false;
+  return v.includes('Request interrupted');
+}
+
 function analyzeSession(lines) {
   const out = {
     model: null,
@@ -143,6 +149,7 @@ function analyzeSession(lines) {
     pendingTools: [],      // tool_result-і келмеген басқа құралдар
     lastStopReason: null,  // соңғы assistant хабарының stop_reason мәні
     turnEndTs: 0,          // соңғы рет кезек аяқталған сәт (end_turn)
+    interruptedTs: 0,      // қолданушы Esc басып, кезекті үзген сәт
   };
 
   const agentCalls = new Map();   // tool_use_id → { desc, type, ts }
@@ -200,12 +207,19 @@ function analyzeSession(lines) {
       if (typeof content === 'string') {
         // Нақты қолданушы сұрауы — жаңа кезеңнің басы
         if (Number.isFinite(ts)) out.turnStartTs = ts;
+        if (isInterrupt(content) && Number.isFinite(ts)) out.interruptedTs = ts;
       } else if (Array.isArray(content)) {
         let hasToolResult = false;
         for (const c of content) {
-          if (c && c.type === 'tool_result') {
+          if (!c) continue;
+          if (c.type === 'tool_result') {
             hasToolResult = true;
             if (c.tool_use_id) resolved.add(c.tool_use_id);
+          }
+          // Қолданушы Esc басып үзгенде Claude Code осындай жазба қалдырады.
+          // Бұл — «модель тоқтады, енді сіздің кезегіңіз» дегеннің АНЫҚ белгісі.
+          if (isInterrupt(c.text) || isInterrupt(c.content)) {
+            if (Number.isFinite(ts)) out.interruptedTs = ts;
           }
         }
         if (!hasToolResult && Number.isFinite(ts)) out.turnStartTs = ts;
@@ -229,6 +243,7 @@ function analyzeSession(lines) {
    бірден көрсету.
 
      agent   — subagent жұмыс істеп жатыр
+     idle    — соңғы жазба tool_result, бірақ ұзақ үнсіз: әлі өңдеуде не тасталған
      working — құрал орындалуда, жауап жазылуда
      asking  — сұраққа/жоспарға жауабыңызды күтіп тұр  ← СІЗ КЕРЕКСІЗ
      waiting — кезек бітті, жаңа тапсырма күтуде        ← СІЗ КЕРЕКСІЗ
@@ -262,11 +277,28 @@ function sessionState(info, fileMtimeMs, now) {
     return { state: 'waiting', sinceTs: info.turnEndTs || info.lastActivityTs || fileMtimeMs };
   }
 
-  // tool_result жаңа ғана келді — модель жауап жазуға кірісті
+  // Қолданушы Esc басып үзген — модель тоқтады, енді шынымен сіздің кезегіңіз
+  if (info.interruptedTs && info.interruptedTs >= (info.turnEndTs || 0)) {
+    return { state: 'waiting', sinceTs: info.interruptedTs };
+  }
+
+  // Осы жерге жеткен болсақ, соңғы жазба — tool_result, ал модель әлі жауабын
+  // жазбаған. Яғни КЕЗЕК ӘЛІ МОДЕЛЬДЕ: ол ойланып жатыр, ұзақ жауап жазуда,
+  // не контексті сығымдауда (compact). Ондай кезде транскриптке бірнеше минут
+  // бойы ештеңе жазылмайды.
+  //
+  // Бұрын мұнда «3 минут үнсіз болса — сізді күтіп тұр» деген ереже тұрған еді.
+  // Ол ЖАЛҒАН ескерту беретін: жұмыс жүріп жатқанда «сізді күтіп тұр» деп
+  // хабарлайтын. Енді олай істемейміз — күту тек АНЫҚ белгімен танылады
+  // (end_turn, сұрақ қоятын құрал, не қолданушының өзі үзуі).
   if (quiet <= ACTIVE_MS) {
     return { state: 'working', sinceTs: info.lastActivityTs || fileMtimeMs };
   }
-  return { state: 'waiting', sinceTs: info.lastActivityTs || fileMtimeMs };
+
+  // Ұзақ үнсіздік: не әлі өңдеп жатыр, не сессия тасталған. Екеуін де
+  // ажырата алмаймыз, сондықтан «үнсіз» деп бөлек көрсетеміз әрі
+  // ЕШҚАНДАЙ ХАБАРЛАМА ЖІБЕРМЕЙМІЗ.
+  return { state: 'idle', sinceTs: info.lastActivityTs || fileMtimeMs };
 }
 
 // Күй «сіз керексіз» дегенді білдіре ме?
@@ -501,7 +533,7 @@ async function collect() {
 
   // Сізді күтіп тұрғандар ЕҢ ЖОҒАРЫДА тұрсын — виджеттің басты пайдасы осы.
   // Олардың ішінде ең ұзақ күткені бірінші.
-  const ORDER = { asking: 0, stalled: 1, waiting: 2, agent: 3, working: 4 };
+  const ORDER = { asking: 0, stalled: 1, waiting: 2, agent: 3, working: 4, idle: 5 };
   sessions.sort((a, b) => {
     const d = (ORDER[a.state] ?? 9) - (ORDER[b.state] ?? 9);
     if (d !== 0) return d;
@@ -512,7 +544,9 @@ async function collect() {
 
   const processCount = await countClaudeProcesses();
 
-  const workingSessions = sessions.filter((s) => !s.needsYou).length;
+  // «Жұмыста» деп тек шынымен жүріп жатқанын санаймыз. 'idle' — ұзақ үнсіз
+  // сессия: ол не өңдеуде, не тасталған, сондықтан бұл санға кірмейді.
+  const workingSessions = sessions.filter((s) => !s.needsYou && s.state !== 'idle').length;
   const waitingSessions = sessions.filter((s) => s.needsYou).length;
 
   return {

@@ -242,7 +242,7 @@ function checkSessionAlerts(data) {
   sessionStatesSeeded = true;
 }
 
-const WORKING_STATES = new Set(['working', 'agent']);
+const WORKING_STATES = new Set(['working', 'agent', 'idle']);
 
 let agentsPending = false;
 async function tickAgents() {
@@ -425,6 +425,7 @@ const TG_STATE = {
   stalled: '🔒 рұқсат күтуде',
   agent:   '🟣 агент жүруде',
   working: '🟢 жұмыста',
+  idle:    '💤 үнсіз',
 };
 
 function buildStatusText() {

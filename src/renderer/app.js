@@ -937,6 +937,7 @@ const STATE_UI = {
   waiting: { label: 'сізді күтуде',  beacon: 'beacon--wait',   tone: 'st-wait' },
   asking:  { label: 'жауап күтуде',  beacon: 'beacon--wait',   tone: 'st-wait' },
   stalled: { label: 'рұқсат күтуде', beacon: 'beacon--stall',  tone: 'st-stall' },
+  idle:    { label: 'үнсіз',         beacon: 'beacon--idle',   tone: 'st-idle' },
 };
 
 function updateSession(card, item) {

@@ -187,6 +187,11 @@ html, body {
 .beacon--wait  { background: var(--warn); }
 .beacon--stall { background: var(--bad); }
 
+/* «Үнсіз» — ұзақ жауап жоқ. Не әлі өңдеуде, не тасталған: сондықтан
+   сөнбейді де, соқпайды да — жай ғана сұр әрі тыныш тұрады. */
+.beacon--idle { background: var(--ink-3); }
+.beacon--idle::after { animation: none; opacity: 0; }
+
 @keyframes beat {
   0%   { transform: scale(1);   opacity: 0.65; }
   70%  { transform: scale(2.6); opacity: 0; }
@@ -582,6 +587,7 @@ body[data-mode="compact"] .full { display: none; }
 .sess-since.st-wait  { color: var(--warn); font-weight: 600; }
 .sess-since.st-stall { color: var(--bad);  font-weight: 600; }
 .sess-since.st-agent { color: var(--accent); }
+.sess-since.st-idle  { color: var(--ink-3); }
 .sess-time.st-wait   { color: var(--warn); }
 .sess-time.st-stall  { color: var(--bad); }
 .sess-main { display: flex; align-items: center; gap: 8px; padding: 8px 9px; }
