@@ -364,69 +364,49 @@ function isAutoLaunchEnabled() {
 
 // ---------------------------------------------------------- баптау терезесі
 //
-// Бөлек терезе: Telegram, хабарламалар, терезе баптаулары және баға файлы.
-// Мақсаты — қолданушыға JSON файл өңдеудің қажеті болмауы.
+// Баптау БӨЛЕК ТЕРЕЗЕ емес — виджеттің өз ішінен жанынан шығатын панель.
+// Сондықтан мұнда тек виджетті көрсетіп, толық режимге ауыстырып,
+// renderer-ге «панельді аш» деген белгі береміз.
 
-let settingsWin = null;
+let settingsOpen = false;
+let modeBeforeSettings = null;   // шағын режимнен ашылса — жапқанда қайтарамыз
 
 function openSettings() {
-  if (settingsWin && !settingsWin.isDestroyed()) {
-    settingsWin.show();
-    settingsWin.focus();
-    return settingsWin;
+  if (!win || win.isDestroyed()) createWindow();
+  if (!win.isVisible()) win.show();
+  win.focus();
+  // Шағын режимде панель сыймайды — алдымен толық режимге ауысамыз.
+  // Қай режимнен келгенін есте сақтап қоямыз: панель жабылғанда қайтарамыз.
+  if (state && state.mode !== 'full') {
+    modeBeforeSettings = state.mode;
+    setMode('full');
   }
-
-  const wa = screen.getPrimaryDisplay().workArea;
-  const w = 430;
-  const h = Math.min(680, wa.height - 80);
-
-  settingsWin = new BrowserWindow({
-    width: w,
-    height: h,
-    x: Math.round(wa.x + (wa.width - w) / 2),
-    y: Math.round(wa.y + (wa.height - h) / 2),
-    minWidth: 380,
-    minHeight: 420,
-    frame: false,
-    transparent: true,
-    backgroundColor: '#00000000',
-    hasShadow: true,
-    resizable: true,
-    maximizable: false,
-    fullscreenable: false,
-    skipTaskbar: false,        // тапсырмалар тақтасында көрінсін — табу оңай
-    alwaysOnTop: false,
-    show: false,
-    icon: iconPath('icon.png') || undefined,
-    title: 'FalconHUD — Баптау',
-    webPreferences: {
-      preload: path.join(__dirname, '..', 'preload-settings.js'),
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true,
-      webSecurity: true,
-      spellcheck: false,
-      devTools: !app.isPackaged,
-    },
-  });
-
-  settingsWin.loadFile(path.join(__dirname, '..', 'renderer', 'settings.html'));
-  settingsWin.once('ready-to-show', () => { settingsWin.show(); settingsWin.focus(); });
-  settingsWin.on('closed', () => { settingsWin = null; updateTrayMenu(); });
-
-  settingsWin.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:\/\//i.test(url)) shell.openExternal(url);
-    return { action: 'deny' };
-  });
-  settingsWin.webContents.on('will-navigate', (e) => e.preventDefault());
-
-  return settingsWin;
+  settingsOpen = true;
+  // Апп жаңа ғана қосылған болса (`--settings`), бет әлі жүктеліп жатуы мүмкін —
+  // ондайда белгі жоғалып кетпес үшін жүктеп болғанын күтеміз.
+  if (win.webContents.isLoading()) {
+    win.webContents.once('did-finish-load', () => sendToRenderer('settings-open', true));
+  } else {
+    sendToRenderer('settings-open', true);
+  }
+  updateTrayMenu();
+  return win;
 }
 
 function closeSettings() {
-  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close();
+  settingsOpen = false;
+  sendToRenderer('settings-open', false);
+  if (modeBeforeSettings) {
+    const back = modeBeforeSettings;
+    modeBeforeSettings = null;
+    // Панель сырғып біткенше күтеміз — әйтпесе жабылу көрінбей қалады
+    setTimeout(() => setMode(back), 260);
+  }
+  updateTrayMenu();
   return true;
 }
+
+function isSettingsOpen() { return settingsOpen; }
 
 // ---------------------------------------------------------------- трей
 
@@ -685,7 +665,7 @@ module.exports = {
   beginManualDrag, endManualDrag,
   setMode, toggleMode, toggleVisibility, setAlwaysOnTop, setAutoLaunch,
   checkLimitAlerts, notifySessionReady, setNotifyReady, setAlertPercent, alertPercent,
-  openSettings, closeSettings,
+  openSettings, closeSettings, isSettingsOpen,
   sendToRenderer, getWindow, getState, updateTrayMenu, destroy,
   saveStateNow,
 };

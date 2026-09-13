@@ -88,7 +88,17 @@ html, body {
 }
 
 /* ─────────────────────────── Карточка ─────────────────────────── */
+/* Тінтуірмен басқанда жүйенің сары сақинасы шықпасын, ал пернетақтамен
+   жүргенде — көрінсін (қолжетімділік үшін керек) */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+  border-radius: 6px;
+}
+
 .hud {
+  position: relative;          /* баптау панелі осының ішінде тұрады */
   height: 100vh;
   display: flex;
   flex-direction: column;

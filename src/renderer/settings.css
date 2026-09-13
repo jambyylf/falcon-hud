@@ -1,21 +1,65 @@
-/* settings.css — баптау терезесі.
-   Негізгі виджеттің стилін (style.css) мұрагерлейді, үстіне форма элементтерін қосады. */
+/* settings.css — баптау панелі.
+   Бөлек терезе емес: виджеттің дәл өз ішінен, оң жағынан шығады.
+   Анимация тек transform/opacity арқылы — орналасу қайта есептелмейді. */
 
-.st-body { font-size: 12.5px; }
+.drawer {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  background: var(--glass);
+  border-radius: var(--r-lg);
 
-.st-hud { border-radius: 14px; }
-
-.st-title { cursor: default; gap: 8px; align-items: baseline; }
-.st-sub {
-  font-size: 10px;
-  color: var(--ink-3);
-  letter-spacing: 0.4px;
+  /* Жабық күй: оң жақта, көрінбейді әрі басылмайды */
+  transform: translateX(100%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform 240ms var(--ease),
+              opacity 150ms var(--ease),
+              visibility 0s linear 240ms;
+}
+.drawer.is-open {
+  transform: translateX(0);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: transform 240ms var(--ease),
+              opacity 150ms var(--ease),
+              visibility 0s linear 0s;
 }
 
-/* Тақырып жолағын сүйреуге болады, ішіндегі жазу емес */
-.st-hud .bar { -webkit-app-region: drag; height: 34px; }
-.st-hud .bar-id { -webkit-app-region: drag; }
-.st-hud .bar-actions { -webkit-app-region: no-drag; }
+/* Шағын режимде панель сыймайды — ол кезде мүлдем шықпайды */
+body[data-mode="compact"] .drawer { display: none; }
+
+/* ─────────────────────── Панельдің тақырыбы ─────────────────────── */
+.drawer-bar {
+  -webkit-app-region: drag;
+  flex: 0 0 auto;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 9px 0 4px;
+  border-bottom: 1px solid var(--edge-soft);
+}
+.drawer-back { -webkit-app-region: no-drag; }
+.drawer-back svg { transform: rotate(180deg); }
+
+.drawer-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  color: var(--ink);
+}
+.drawer-ver {
+  margin-left: auto;
+  font-size: 9px;
+  color: var(--ink-3);
+}
+
+.drawer-body { flex: 1 1 auto; }
 
 /* ─────────────────────────── Мазмұн ─────────────────────────── */
 .st-main {
@@ -268,13 +312,6 @@
   background: rgba(234, 179, 8, 0.12);
   border: 1px solid rgba(234, 179, 8, 0.3);
   color: #FDE68A;
-}
-
-.st-foot {
-  text-align: center;
-  font-size: 9px;
-  color: var(--ink-3);
-  padding: 2px 0 4px;
 }
 
 /* ───────────────────────── Дерек көздері ───────────────────────── */
