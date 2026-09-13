@@ -172,6 +172,11 @@ html, body {
 .beacon.is-idle { background: var(--ink-3); }
 .beacon.is-idle::after { animation: none; opacity: 0; }
 
+/* Сессия күйіне қарай түс: жасыл = жұмыста, күлгін = агент, сары = сізді күтуде */
+.beacon--agent { background: var(--accent); }
+.beacon--wait  { background: var(--warn); }
+.beacon--stall { background: var(--bad); }
+
 @keyframes beat {
   0%   { transform: scale(1);   opacity: 0.65; }
   70%  { transform: scale(2.6); opacity: 0; }
@@ -294,8 +299,21 @@ body[data-mode="compact"] .full { display: none; }
   font-size: 9px;
   color: var(--ink-3);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: 0 0 auto;
+}
+
+/* Шағын режимде «сізді күтіп тұр» белгісі */
+.mini-needs {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--warn);
+  background: rgba(234, 179, 8, 0.14);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  border-radius: 99px;
+  padding: 1.5px 6px;
+  white-space: nowrap;
 }
 
 .mini-meter { display: flex; flex-direction: column; gap: 3px; }
@@ -386,6 +404,16 @@ body[data-mode="compact"] .full { display: none; }
 }
 .phead-r b { color: var(--ink-2); font-weight: 600; }
 .phead-r.is-warn { color: var(--warn); }
+
+/* «N күтуде» белгісі — тақырыпта да көзге түссін */
+.needs-pill {
+  color: var(--warn) !important;
+  background: rgba(234, 179, 8, 0.14);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  border-radius: 99px;
+  padding: 1px 6px;
+  font-weight: 700 !important;
+}
 
 .stack { display: flex; flex-direction: column; gap: 9px; }
 .stack--tight { gap: 5px; }
@@ -520,7 +548,24 @@ body[data-mode="compact"] .full { display: none; }
   border-radius: var(--r-md);
   background: var(--fill);
   overflow: hidden;
+  transition: border-color 260ms var(--ease), background-color 260ms var(--ease);
 }
+
+/* Сізді күтіп тұрған сессия көзге бірден түсуі керек */
+.sess.is-needs {
+  border-color: rgba(234, 179, 8, 0.38);
+  background: rgba(234, 179, 8, 0.07);
+}
+.sess.is-stall {
+  border-color: rgba(239, 68, 68, 0.38);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.sess-since.st-wait  { color: var(--warn); font-weight: 600; }
+.sess-since.st-stall { color: var(--bad);  font-weight: 600; }
+.sess-since.st-agent { color: var(--accent); }
+.sess-time.st-wait   { color: var(--warn); }
+.sess-time.st-stall  { color: var(--bad); }
 .sess-main { display: flex; align-items: center; gap: 8px; padding: 8px 9px; }
 
 .sess-head {

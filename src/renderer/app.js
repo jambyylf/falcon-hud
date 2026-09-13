@@ -629,6 +629,14 @@ function renderAgents(d) {
 
   if (note) {
     clear(note);
+    const wait = d.counts.waitingSessions || 0;
+    if (wait > 0) {
+      const w = el('b', 'needs-pill', '▲ ' + wait + ' күтуде');
+      note.appendChild(w);
+      note.appendChild(document.createTextNode(' · '));
+    }
+    note.appendChild(el('b', null, String(d.counts.activeSessions || 0)));
+    note.appendChild(document.createTextNode(' жұмыста · '));
     note.appendChild(el('b', null, d.counts.claudeProcesses == null ? '—' : String(d.counts.claudeProcesses)));
     note.appendChild(document.createTextNode(' процесс'));
   }
@@ -701,8 +709,29 @@ function buildSession(item) {
   return card;
 }
 
+/* Сессия күйінің көрінісі.
+   Мақсаты: ондаған сессияның ҚАЙСЫСЫ сізді күтіп тұрғанын бірден көру. */
+const STATE_UI = {
+  working: { label: 'жұмыста',       beacon: '',               tone: '' },
+  agent:   { label: 'агент жүруде',  beacon: 'beacon--agent',  tone: 'st-agent' },
+  waiting: { label: 'сізді күтуде',  beacon: 'beacon--wait',   tone: 'st-wait' },
+  asking:  { label: 'жауап күтуде',  beacon: 'beacon--wait',   tone: 'st-wait' },
+  stalled: { label: 'рұқсат күтуде', beacon: 'beacon--stall',  tone: 'st-stall' },
+};
+
 function updateSession(card, item) {
   const s = item.s;
+
+  // ── Күй: жиек, нүкте түсі, мәтін
+  const st = (s && s.state) || 'working';
+  const ui2 = STATE_UI[st] || STATE_UI.working;
+  card.classList.toggle('is-needs', !!(s && s.needsYou) && st !== 'stalled');
+  card.classList.toggle('is-stall', st === 'stalled');
+
+  const beacon = card.querySelector('.beacon');
+  if (beacon) {
+    beacon.className = 'beacon' + (ui2.beacon ? ' ' + ui2.beacon : '');
+  }
 
   setText(card.querySelector('.sess-name'), s ? s.project : item.project);
 
@@ -728,14 +757,19 @@ function updateSession(card, item) {
   setText(card.querySelector('.sess-act-txt'), s && s.lastTool && s.lastTool.detail ? '· ' + s.lastTool.detail : '');
 
   const time = card.querySelector('.sess-time');
+  const since = card.querySelector('.sess-since');
   if (s) {
-    time.dataset.since = String(s.runningSinceTs);
+    // Таймер күйдің басталған сәтінен саналады: «сізді 12 минуттан бері күтуде»
+    time.dataset.since = String(s.stateSinceTs || s.runningSinceTs);
     time.hidden = false;
-    card.querySelector('.sess-since').hidden = false;
+    since.hidden = false;
+    setText(since, ui2.label);
+    time.className = 'sess-time num' + (ui2.tone ? ' ' + ui2.tone : '');
+    since.className = 'sess-since' + (ui2.tone ? ' ' + ui2.tone : '');
   } else {
     delete time.dataset.since;          // жасырын өрісті бос санамаймыз
     time.hidden = true;
-    card.querySelector('.sess-since').hidden = true;
+    since.hidden = true;
   }
 
   // ── Subagent-тер
@@ -955,10 +989,19 @@ function renderMini() {
   ring($('ring-5h'), l5);
   ring($('ring-week'), lw);
 
-  const count = A ? (A.counts.activeSessions + A.counts.runningSubagents) : null;
-  setNum($('mini-agents'), count == null ? '—' : String(count));
+  // Сол жақта — жұмыс істеп жатқандар, оң жағында — сізді күтіп тұрғандар
+  const working = A ? (A.counts.activeSessions + A.counts.runningSubagents) : null;
+  const waiting = A ? (A.counts.waitingSessions || 0) : 0;
+
+  setNum($('mini-agents'), working == null ? '—' : String(working));
   const beacon = $('mini-beacon');
-  if (beacon) beacon.classList.toggle('is-idle', !count);
+  if (beacon) beacon.classList.toggle('is-idle', !working);
+
+  const needs = $('mini-needs');
+  if (needs) {
+    needs.hidden = !waiting;
+    if (waiting) setNum(needs, '▲ ' + waiting + ' күтуде');
+  }
 
   const cpuPct = S && S.cpu ? S.cpu.load : null;
   const ramPct = S && S.ram ? S.ram.percent : null;

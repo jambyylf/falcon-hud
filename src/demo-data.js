@@ -111,7 +111,53 @@ function demoUsage(now) {
 function demoAgents(now) {
   return {
     updatedAt: now,
+    // ▼ Бес күйдің БӘРІ бір мезгілде көрінеді: сізді күтіп тұрғандары жоғарыда
     sessions: [
+      {
+        sessionId: 'demo-session-4',
+        projectDir: 'demo-4',
+        project: 'demo-bot',
+        model: 'claude-opus-5',
+        modelLabel: 'Opus 5',
+        lastTool: { tool: 'AskUserQuestion', detail: 'Қай нұсқаны таңдаймыз?', ts: now - 3 * MIN },
+        lastActivityTs: now - 3 * MIN,
+        runningSinceTs: now - 14 * MIN,
+        pendingAgents: [],
+        state: 'asking',
+        stateSinceTs: now - 3 * MIN - 20 * 1000,
+        needsYou: true,
+        pendingTool: 'AskUserQuestion',
+      },
+      {
+        sessionId: 'demo-session-5',
+        projectDir: 'demo-5',
+        project: 'demo-worker',
+        model: 'claude-sonnet-5',
+        modelLabel: 'Sonnet 5',
+        lastTool: { tool: 'Bash', detail: 'rm -rf build/cache', ts: now - 4 * MIN },
+        lastActivityTs: now - 4 * MIN,
+        runningSinceTs: now - 9 * MIN,
+        pendingAgents: [],
+        state: 'stalled',
+        stateSinceTs: now - 4 * MIN - 10 * 1000,
+        needsYou: true,
+        pendingTool: 'Bash',
+      },
+      {
+        sessionId: 'demo-session-3',
+        projectDir: 'demo-3',
+        project: 'demo-web',
+        model: 'claude-opus-5',
+        modelLabel: 'Opus 5',
+        lastTool: { tool: 'Write', detail: 'checkout.spec.ts', ts: now - 12 * MIN },
+        lastActivityTs: now - 12 * MIN,
+        runningSinceTs: now - 26 * MIN,
+        pendingAgents: [],
+        state: 'waiting',
+        stateSinceTs: now - 12 * MIN - 30 * 1000,
+        needsYou: true,
+        pendingTool: null,
+      },
       {
         sessionId: 'demo-session-1',
         projectDir: 'demo-1',
@@ -122,6 +168,10 @@ function demoAgents(now) {
         lastActivityTs: now - 4000,
         runningSinceTs: now - 8 * MIN - 12 * 1000,
         pendingAgents: [],
+        state: 'agent',
+        stateSinceTs: now - 95 * 1000,
+        needsYou: false,
+        pendingTool: null,
       },
       {
         sessionId: 'demo-session-2',
@@ -133,6 +183,10 @@ function demoAgents(now) {
         lastActivityTs: now - 9000,
         runningSinceTs: now - 2 * MIN - 40 * 1000,
         pendingAgents: [],
+        state: 'working',
+        stateSinceTs: now - 2 * MIN - 40 * 1000,
+        needsYou: false,
+        pendingTool: 'Bash',
       },
     ],
     // ▼ Екеуі де «falcon-hud» жобасында → сол карточканың ІШІНДЕ шегініспен тұрады
@@ -156,7 +210,7 @@ function demoAgents(now) {
         lastTool: { tool: 'WebFetch', detail: 'api.anthropic.com/oauth/usage' },
       },
     ],
-    counts: { activeSessions: 2, runningSubagents: 2, claudeProcesses: 7 },
+    counts: { activeSessions: 2, waitingSessions: 3, runningSubagents: 2, claudeProcesses: 7 },
   };
 }
 

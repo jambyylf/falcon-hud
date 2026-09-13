@@ -155,6 +155,38 @@ async function tickUsage(full) {
   }
 }
 
+// ── Сессия «сізді күте бастағанда» бір рет хабарлау ──
+// Алғашқы жинауда хабарлама жібермейміз: әйтпесе апп қосылған сәтте бұрыннан
+// күтіп тұрған барлық сессия бірден хабарлама жіберер еді.
+const prevSessionState = new Map();   // sessionId → күй
+let sessionStatesSeeded = false;
+
+function checkSessionAlerts(data) {
+  if (!data || !Array.isArray(data.sessions)) return;
+
+  const seen = new Set();
+  for (const s of data.sessions) {
+    seen.add(s.sessionId);
+    const before = prevSessionState.get(s.sessionId);
+    prevSessionState.set(s.sessionId, s.state);
+
+    if (!sessionStatesSeeded) continue;          // бірінші жинау — тек есте сақтаймыз
+    if (!s.needsYou) continue;                   // әлі жұмыс істеп жатыр
+    if (before === s.state) continue;            // күй өзгерген жоқ
+    if (before && !WORKING_STATES.has(before)) continue;  // күтуден күтуге ауысу — хабарламаймыз
+
+    win.notifySessionReady(s);
+  }
+
+  // Тізімнен шыққан сессияларды ұмытамыз (жады өспесін)
+  for (const id of prevSessionState.keys()) {
+    if (!seen.has(id)) prevSessionState.delete(id);
+  }
+  sessionStatesSeeded = true;
+}
+
+const WORKING_STATES = new Set(['working', 'agent']);
+
 let agentsPending = false;
 async function tickAgents() {
   if (agentsPending) return;
@@ -162,6 +194,8 @@ async function tickAgents() {
   try {
     latest.agents = await agents.collect();
     emit('agents', latest.agents);
+    // Хабарлама тек НАҚТЫ дерекке — демо режимде жалған ескерту болмайды
+    if (!demo.on) checkSessionAlerts(latest.agents);
   } catch (e) {
     /* елемейміз */
   } finally {

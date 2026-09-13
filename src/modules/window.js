@@ -48,6 +48,7 @@ function defaultState() {
     sizes: JSON.parse(JSON.stringify(DEFAULT_SIZES)),
     alwaysOnTop: true,
     autoLaunch: false,
+    notifyReady: true,        // сессия дайын болғанда хабарлау
   };
 }
 
@@ -325,6 +326,14 @@ function setAlwaysOnTop(value) {
   return state.alwaysOnTop;
 }
 
+function setNotifyReady(value) {
+  if (!state) return false;
+  state.notifyReady = !!value;
+  scheduleSave();
+  updateTrayMenu();
+  return state.notifyReady;
+}
+
 // Компьютер қосылғанда автоматты іске қосу
 function setAutoLaunch(value) {
   const enabled = !!value;
@@ -380,6 +389,12 @@ function updateTrayMenu() {
       type: 'checkbox',
       checked: isAutoLaunchEnabled(),
       click: (item) => setAutoLaunch(item.checked),
+    },
+    {
+      label: 'Сессия дайын болғанда хабарлау',
+      type: 'checkbox',
+      checked: !!state.notifyReady,
+      click: (item) => setNotifyReady(item.checked),
     },
     { type: 'separator' },
     {
@@ -441,6 +456,34 @@ function unregisterShortcuts() {
 }
 
 // ---------------------------------------------------------------- хабарламалар
+
+// ─────────── Сессия сізді күте бастағанда хабарлау ───────────
+// Ондаған сессия қатар жүргенде, қайсысы дайын болғанын білу — ең пайдалы нәрсе.
+// Трей мәзірінен өшіруге болады.
+
+const STATE_TEXT = {
+  waiting: 'кезегін аяқтады — сізді күтіп тұр',
+  asking:  'сұрақ қойды — жауабыңызды күтіп тұр',
+  stalled: 'рұқсат сұрап тұрған сияқты',
+};
+
+function notifySessionReady(session) {
+  if (!state || !state.notifyReady) return;
+  if (!Notification.isSupported()) return;
+  const what = STATE_TEXT[session.state] || 'сізді күтіп тұр';
+  try {
+    const n = new Notification({
+      title: 'FalconHUD — ' + session.project,
+      body: what,
+      silent: false,
+      icon: iconPath('icon.png') || undefined,
+    });
+    n.on('click', () => {
+      if (win && !win.isDestroyed()) { win.show(); win.focus(); }
+    });
+    n.show();
+  } catch { /* хабарлама шықпаса — маңызды емес */ }
+}
 
 // Ескерту шегі, %. Әдепкі — 80. Тексеру үшін FALCONHUD_ALERT_PERCENT арқылы өзгертуге болады.
 const ALERT_PERCENT = (() => {
@@ -512,6 +555,7 @@ module.exports = {
   createWindow, createTray, registerShortcut, unregisterShortcuts, setDemoHooks,
   beginManualDrag, endManualDrag,
   setMode, toggleMode, toggleVisibility, setAlwaysOnTop, setAutoLaunch,
-  checkLimitAlerts, sendToRenderer, getWindow, getState, updateTrayMenu, destroy,
+  checkLimitAlerts, notifySessionReady, setNotifyReady,
+  sendToRenderer, getWindow, getState, updateTrayMenu, destroy,
   saveStateNow,
 };

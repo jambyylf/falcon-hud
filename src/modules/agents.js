@@ -13,7 +13,14 @@ const { exec } = require('child_process');
 const { projectsDir, projectDirToName, cwdToName } = require('./paths');
 const { normalizeModel, modelLabel } = require('./usage-parser');
 
-const ACTIVE_MS = 3 * 60 * 1000;          // Соңғы 3 минутта жаңарса — белсенді
+const ACTIVE_MS = 3 * 60 * 1000;          // Соңғы 3 минутта жаңарса — жұмыс істеп жатыр
+
+// Кезегі біткен сессияны бірден жасырмаймыз — «сені күтіп тұр» деп тұруы керек.
+// Әйтпесе 5 минут бұрын дайын болған сессия тізімнен жоғалып кетер еді.
+const WAITING_MS = 45 * 60 * 1000;        // Күтудегі сессияны 45 минут көрсетеміз
+
+// Құрал шақырылып, осыншама уақыт үнсіздік болса — көбіне рұқсат сұрап тұрады
+const STALL_MS = 90 * 1000;
 
 // Негізгі сессия файлының соңғы бөлігі. Бізге тек соңғы әрекет пен әлі аяқталмаған
 // Agent шақырулары керек — олар әрқашан файлдың соңында болады, сондықтан 512 КБ жеткілікті.
@@ -122,6 +129,9 @@ function describeTool(block) {
 
 // ---------------------------------------------------------- сессия транскриптін талдау
 
+// Жауап күтетін құралдар: бұлар шыққанда сессия нақты СІЗДІ күтіп тұр
+const ASK_TOOLS = new Set(['AskUserQuestion', 'ExitPlanMode']);
+
 function analyzeSession(lines) {
   const out = {
     model: null,
@@ -130,9 +140,13 @@ function analyzeSession(lines) {
     turnStartTs: 0,
     cwd: null,
     pendingAgents: [],     // tool_result-і келмеген Agent/Task шақырулары
+    pendingTools: [],      // tool_result-і келмеген басқа құралдар
+    lastStopReason: null,  // соңғы assistant хабарының stop_reason мәні
+    turnEndTs: 0,          // соңғы рет кезек аяқталған сәт (end_turn)
   };
 
   const agentCalls = new Map();   // tool_use_id → { desc, type, ts }
+  const toolCalls = new Map();    // tool_use_id → { name, detail, ts }
   const resolved = new Set();     // tool_result келген id-лер
 
   for (const line of lines) {
@@ -145,6 +159,16 @@ function analyzeSession(lines) {
     if (j.type === 'assistant' && j.message) {
       const m = normalizeModel(j.message.model);
       if (m) out.model = m;
+
+      // Кезек аяқталды ма? 'end_turn' = модель сөзін бітірді, енді сіздің кезегіңіз
+      const stop = j.message.stop_reason || null;
+      if (stop) {
+        out.lastStopReason = stop;
+        if (stop === 'end_turn' || stop === 'stop_sequence') {
+          if (Number.isFinite(ts)) out.turnEndTs = ts;
+        }
+      }
+
       const content = j.message.content;
       if (Array.isArray(content)) {
         for (const c of content) {
@@ -156,6 +180,13 @@ function analyzeSession(lines) {
                 id: c.id,
                 desc: short((c.input && c.input.description) || (c.input && c.input.subagent_type), 54),
                 type: (c.input && c.input.subagent_type) || 'agent',
+                ts: Number.isFinite(ts) ? ts : 0,
+              });
+            } else {
+              toolCalls.set(c.id, {
+                id: c.id,
+                name: c.name,
+                detail: d.detail,
                 ts: Number.isFinite(ts) ? ts : 0,
               });
             }
@@ -185,8 +216,62 @@ function analyzeSession(lines) {
   for (const [id, call] of agentCalls) {
     if (!resolved.has(id)) out.pendingAgents.push(call);
   }
+  for (const [id, call] of toolCalls) {
+    if (!resolved.has(id)) out.pendingTools.push(call);
+  }
   out.pendingAgents.sort((a, b) => a.ts - b.ts);
+  out.pendingTools.sort((a, b) => a.ts - b.ts);
   return out;
+}
+
+/* ───────────────────────── Сессияның күйі ─────────────────────────
+   Мақсаты: қатар жүрген ондаған сессияның ҚАЙСЫСЫ сізді күтіп тұрғанын
+   бірден көрсету.
+
+     agent   — subagent жұмыс істеп жатыр
+     working — құрал орындалуда, жауап жазылуда
+     asking  — сұраққа/жоспарға жауабыңызды күтіп тұр  ← СІЗ КЕРЕКСІЗ
+     waiting — кезек бітті, жаңа тапсырма күтуде        ← СІЗ КЕРЕКСІЗ
+     stalled — құрал ілініп қалды (көбіне рұқсат сұрап тұр) ← СІЗ КЕРЕКСІЗ  */
+
+function sessionState(info, fileMtimeMs, now) {
+  const quiet = now - (info.lastActivityTs || fileMtimeMs);   // қанша уақыт үнсіз
+
+  if (info.pendingAgents.length) {
+    return { state: 'agent', sinceTs: info.pendingAgents[0].ts || fileMtimeMs };
+  }
+
+  if (info.pendingTools.length) {
+    const first = info.pendingTools[0];
+
+    // Жауап күтетін құрал — сөзсіз сізді күтіп тұр
+    if (info.pendingTools.some((t) => ASK_TOOLS.has(t.name))) {
+      const ask = info.pendingTools.find((t) => ASK_TOOLS.has(t.name));
+      return { state: 'asking', sinceTs: ask.ts || fileMtimeMs, tool: ask.name };
+    }
+
+    // Құрал шақырылған, бірақ ұзақ уақыт үнсіз → көбіне рұқсат сұрап тұрады
+    if (quiet > STALL_MS) {
+      return { state: 'stalled', sinceTs: first.ts || fileMtimeMs, tool: first.name };
+    }
+    return { state: 'working', sinceTs: first.ts || fileMtimeMs, tool: first.name };
+  }
+
+  // Құрал күтілмейді. Кезек 'end_turn'-мен бітсе — сіздің кезегіңіз.
+  if (info.lastStopReason === 'end_turn' || info.lastStopReason === 'stop_sequence') {
+    return { state: 'waiting', sinceTs: info.turnEndTs || info.lastActivityTs || fileMtimeMs };
+  }
+
+  // tool_result жаңа ғана келді — модель жауап жазуға кірісті
+  if (quiet <= ACTIVE_MS) {
+    return { state: 'working', sinceTs: info.lastActivityTs || fileMtimeMs };
+  }
+  return { state: 'waiting', sinceTs: info.lastActivityTs || fileMtimeMs };
+}
+
+// Күй «сіз керексіз» дегенді білдіре ме?
+function needsYou(state) {
+  return state === 'waiting' || state === 'asking' || state === 'stalled';
 }
 
 // ---------------------------------------------------------- subagent транскриптін талдау
@@ -286,7 +371,8 @@ function countClaudeProcesses() {
 
 async function collect() {
   const now = Date.now();
-  const cutoff = now - ACTIVE_MS;
+  const cutoff = now - ACTIVE_MS;            // subagent-тер үшін
+  const sessionCutoff = now - WAITING_MS;    // сессиялар үшін (күтудегісі де көрінсін)
   const root = projectsDir();
 
   const sessions = [];
@@ -313,12 +399,13 @@ async function collect() {
       const filePath = path.join(projPath, e.name);
       let st;
       try { st = await fsp.stat(filePath); } catch { continue; }
-      if (st.mtimeMs < cutoff) continue;               // Белсенді емес
+      if (st.mtimeMs < sessionCutoff) continue;        // Мүлде ескі — көрсетпейміз
 
       const lines = await readTailLines(filePath, SESSION_TAIL_BYTES);
       if (!lines.length) continue;
       const info = analyzeSession(lines);
       const sessionId = e.name.replace(/\.jsonl$/, '');
+      const st2 = sessionState(info, st.mtimeMs, now);
 
       sessions.push({
         sessionId,
@@ -330,6 +417,11 @@ async function collect() {
         lastActivityTs: info.lastActivityTs || st.mtimeMs,
         runningSinceTs: info.turnStartTs || info.lastActivityTs || st.mtimeMs,
         pendingAgents: info.pendingAgents,
+        // ── Жаңа: сессияның күйі
+        state: st2.state,                 // agent | working | asking | waiting | stalled
+        stateSinceTs: st2.sinceTs,        // осы күйге қашан ауысқаны
+        needsYou: needsYou(st2.state),    // сіздің араласуыңыз керек пе
+        pendingTool: st2.tool || null,    // қай құрал күтіп тұр (asking/stalled үшін)
       });
     }
 
@@ -406,16 +498,30 @@ async function collect() {
   }
 
   running.sort((a, b) => a.startedTs - b.startedTs);
-  sessions.sort((a, b) => b.lastActivityTs - a.lastActivityTs);
+
+  // Сізді күтіп тұрғандар ЕҢ ЖОҒАРЫДА тұрсын — виджеттің басты пайдасы осы.
+  // Олардың ішінде ең ұзақ күткені бірінші.
+  const ORDER = { asking: 0, stalled: 1, waiting: 2, agent: 3, working: 4 };
+  sessions.sort((a, b) => {
+    const d = (ORDER[a.state] ?? 9) - (ORDER[b.state] ?? 9);
+    if (d !== 0) return d;
+    return a.needsYou
+      ? a.stateSinceTs - b.stateSinceTs        // ұзақ күткені жоғарыда
+      : b.lastActivityTs - a.lastActivityTs;   // жаңа әрекеті жоғарыда
+  });
 
   const processCount = await countClaudeProcesses();
+
+  const workingSessions = sessions.filter((s) => !s.needsYou).length;
+  const waitingSessions = sessions.filter((s) => s.needsYou).length;
 
   return {
     updatedAt: now,
     sessions,
     subagents: running,
     counts: {
-      activeSessions: sessions.length,
+      activeSessions: workingSessions,        // жұмыс істеп жатқандар
+      waitingSessions,                        // сізді күтіп тұрғандар
       runningSubagents: running.length,
       claudeProcesses: processCount,
     },
