@@ -33,7 +33,7 @@
 
 /* ─────────────────────────── Айнымалылар ─────────────────────────── */
 :root {
-  --glass:      rgba(11, 11, 18, 0.85);   /* #0B0B12 / 85% */
+  --glass:      #0B0B12;                  /* мөлдір емес — арты көрінбейді */
   --edge:       rgba(255, 255, 255, 0.08);
   --edge-soft:  rgba(255, 255, 255, 0.05);
   --fill:       rgba(255, 255, 255, 0.035);
@@ -96,9 +96,9 @@ html, body {
   border: 1px solid var(--edge);
   border-radius: var(--r-lg);
   overflow: hidden;
-  backdrop-filter: blur(22px) saturate(150%);
-  -webkit-backdrop-filter: blur(22px) saturate(150%);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  /* Фон мөлдір емес болғандықтан backdrop-filter қажет емес —
+     ол тек GPU-ды бос жүктер еді. */
+  box-shadow: 0 18px 52px rgba(0, 0, 0, 0.62);
 }
 
 /* ───────────────────────── Жоғарғы жолақ ───────────────────────── */
