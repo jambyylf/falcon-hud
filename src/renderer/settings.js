@@ -193,6 +193,18 @@ function bind() {
 
 /* ──────────────────────────── іске қосу ──────────────────────────── */
 
+function paintSources(src) {
+  const put = (id, ok) => {
+    const el = $(id);
+    if (!el) return;
+    el.classList.toggle('is-on', !!ok);
+    el.classList.toggle('is-off', !ok);
+    el.querySelector('.st-src-state').textContent = ok ? 'табылды' : 'табылмады';
+  };
+  put('src-claude', src && src.claude);
+  put('src-codex', src && src.codex);
+}
+
 async function init() {
   bind();
 
@@ -205,6 +217,7 @@ async function init() {
       $('alert-pct').value = s.alertPercent || 80;
       $('alert-pct-val').textContent = (s.alertPercent || 80) + '%';
       if (s.version) $('st-version').textContent = 'FalconHUD ' + s.version;
+      paintSources(s.sources);
       paintTelegram(s.telegram || { configured: false });
     }
   } catch {

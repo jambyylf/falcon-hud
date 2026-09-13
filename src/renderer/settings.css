@@ -276,3 +276,17 @@
   color: var(--ink-3);
   padding: 2px 0 4px;
 }
+
+/* ───────────────────────── Дерек көздері ───────────────────────── */
+.st-src {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 11.5px;
+}
+.st-src-name { color: var(--ink); font-weight: 500; }
+.st-src-state { margin-left: auto; font-size: 10px; color: var(--ink-3); }
+.st-src.is-on .st-dot { background: var(--ok); }
+.st-src.is-on .st-src-state { color: var(--ok); }
+.st-src.is-off .st-dot { background: var(--ink-3); }

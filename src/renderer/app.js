@@ -451,6 +451,10 @@ function renderBanners() {
   if (f.parserWarning) {
     items.push({ key: 'parser', cls: 'banner', ic: 'alert', text: f.parserWarning });
   }
+  // Не Claude Code, не Codex табылмаса — виджет бос тұрады, себебін айтамыз
+  if (f.noSource) {
+    items.push({ key: 'nosource', cls: 'banner', ic: 'alert', text: f.noSource });
+  }
 
   renderKeyed(box, items,
     (item) => {

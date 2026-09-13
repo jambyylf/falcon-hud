@@ -8,6 +8,8 @@ const path = require('path');
 const fs = require('fs');
 
 const usage = require('./modules/usage-parser');
+const codex = require('./modules/codex-parser');
+const paths = require('./modules/paths');
 const agents = require('./modules/agents');
 const limits = require('./modules/limits');
 const system = require('./modules/system');
@@ -48,6 +50,8 @@ const flags = {
   demo: false,
   demoEmpty: false,
   parserWarning: null,   // мәтін немесе null
+  sources: null,         // { claude: bool, codex: bool } — қай құрал табылды
+  noSource: null,        // ешқайсысы табылмаса — ескерту мәтіні
 };
 
 function demoState() { return { demo: demo.on, empty: demo.empty }; }
@@ -180,13 +184,25 @@ function emit(channel, realValue) {
 }
 
 let usagePending = false;
+let lastCodexLimitsStamp = 0;
+
 async function tickUsage(full) {
   if (usagePending) return;
   usagePending = true;
   try {
     await usage.scan({ full: !!full });
-    latest.usage = usage.summary();
+    await codex.scan({ full: !!full });
+    // Екі құралдың жазбасы бір есепке қосылады — пішіні бірдей
+    latest.usage = usage.summary(codex.rawEvents(), codex.projectCount());
     emit('usage', latest.usage);
+
+    // Codex лимиті транскрипттен келеді, желіден емес. Ол жаңарған бойда
+    // лимит бөлімін де жаңартамыз (60 секундтық айналымды күтпей).
+    const stamp = codex.limitsStamp();
+    if (stamp !== lastCodexLimitsStamp) {
+      lastCodexLimitsStamp = stamp;
+      tickLimits();            // limits.getLimits кэштен оқиды — желіге бармайды
+    }
   } catch (e) {
     // Бір айналым сәтсіз болса — келесісі қайталайды
   } finally {
@@ -259,7 +275,23 @@ async function tickSystem() {
 
 async function tickLimits(force) {
   try {
-    latest.limits = await limits.getLimits(!!force);
+    // Claude Code орнатылмаған болса, оның лимитін сұраудың қажеті жоқ —
+    // әйтпесе «Токен табылмады» деген қате бекер шығып тұрар еді.
+    const hasClaude = !!(flags.sources && flags.sources.claude);
+    const claudeLimits = hasClaude
+      ? await limits.getLimits(!!force)
+      : { ok: false, limits: [], error: 'Claude Code орнатылмаған', fetchedAt: 0 };
+    const codexLimits = codex.limits();
+
+    // Екі құралдың лимитін бір тізімге қосамыз
+    latest.limits = codexLimits.length
+      ? Object.assign({}, claudeLimits, {
+          ok: claudeLimits.ok || codexLimits.length > 0,
+          limits: (claudeLimits.limits || []).concat(codexLimits),
+          error: claudeLimits.ok ? null : claudeLimits.error,
+        })
+      : claudeLimits;
+
     emit('limits', latest.limits);
     // Хабарлама тек НАҚТЫ дерекке шығады — демо режим жалған ескерту бермейді
     if (!demo.on && latest.limits && latest.limits.ok) {
@@ -501,6 +533,7 @@ function registerIpc() {
       autoLaunch: w.autoLaunch,
       alertPercent: win.alertPercent(),
       telegram: tg,
+      sources: flags.sources || { claude: false, codex: false },
       version: app.getVersion(),
     };
   });
@@ -589,6 +622,18 @@ app.whenReady().then(async () => {
   if (process.platform === 'win32') app.setAppUserModelId('kz.falcon.hud');
 
   usage.loadPricing(pricingPath());
+  codex.setHelpers(usage.eventCost, usage.modelLabel);
+
+  // Қай құрал орнатылған? Ешқайсысы табылмаса — виджет бос тұрар еді,
+  // сондықтан қолданушыға анық айтамыз.
+  const hasClaude = paths.exists(paths.projectsDir());
+  const hasCodex = codex.available();
+  flags.sources = { claude: hasClaude, codex: hasCodex };
+  if (!hasClaude && !hasCodex) {
+    flags.noSource = 'Claude Code те, Codex те табылмады — көрсетуге дерек жоқ';
+  }
+  console.log('[FalconHUD] дерек көздері: Claude Code — ' + (hasClaude ? 'бар' : 'ЖОҚ') +
+              ' | Codex — ' + (hasCodex ? 'бар' : 'ЖОҚ'));
 
   win.createWindow();
   const trayInfo = win.createTray();
@@ -637,6 +682,7 @@ app.whenReady().then(async () => {
   tickUsage(true).then(() => {
     // Толық шолудан кейін файл бақылауды қосамыз
     usage.startWatching(() => { /* өзгеріс белгіленді, келесі айналым оқиды */ });
+    codex.startWatching(() => { /* сол сияқты */ });
     // Жадыда соңғы 8 күн бар — тарихқа сол күндерді бірден жазып қоямыз
     return tickHistory();
   });
@@ -680,6 +726,7 @@ app.on('will-quit', () => {
   for (const t of timers) clearInterval(t);
   timers.length = 0;
   usage.stopWatching();
+  try { codex.stopWatching(); } catch {}
   try { telegram.stopPolling(); } catch {}
   // Шығар алдында бүгінгі жиынтықты соңғы рет жазып қалдырамыз
   try {

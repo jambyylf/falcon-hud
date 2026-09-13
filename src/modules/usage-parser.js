@@ -412,7 +412,13 @@ function startOfWeek(now) {
   return d.getTime();
 }
 
-function summary() {
+/**
+ * Жиынтық есеп.
+ * @param extraEvents  Басқа құралдың жазбалары (мысалы Codex). Пішіні бірдей
+ *                     болғандықтан, екеуі бір есепке қосылады.
+ * @param extraProjects Сол құралдағы жоба саны (жалпы санға қосылады).
+ */
+function summary(extraEvents, extraProjects) {
   const now = Date.now();
   const t5h = now - FIVE_HOUR_MS;
   const tToday = startOfToday(now);
@@ -423,7 +429,11 @@ function summary() {
   const week = emptyBucket();
   const perProjectToday = new Map();
 
-  for (const ev of state.events) {
+  const all = (extraEvents && extraEvents.length)
+    ? state.events.concat(extraEvents)
+    : state.events;
+
+  for (const ev of all) {
     if (ev.ts >= t5h) addToBucket(last5h, ev);
     if (ev.ts >= tToday) {
       addToBucket(today, ev);
@@ -455,7 +465,7 @@ function summary() {
       week:   Object.assign({}, week,   { models: sortModels(week) }),
     },
     projects: {
-      total: state.projects.size,
+      total: state.projects.size + (Number(extraProjects) || 0),
       activeToday: projectsToday.length,
       list: projectsToday,
     },
