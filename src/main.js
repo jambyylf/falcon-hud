@@ -12,6 +12,7 @@ const agents = require('./modules/agents');
 const limits = require('./modules/limits');
 const system = require('./modules/system');
 const history = require('./modules/history');
+const telegram = require('./modules/telegram');
 const win = require('./modules/window');
 const demoData = require('./demo-data');
 
@@ -175,7 +176,8 @@ function checkSessionAlerts(data) {
     if (before === s.state) continue;            // күй өзгерген жоқ
     if (before && !WORKING_STATES.has(before)) continue;  // күтуден күтуге ауысу — хабарламаймыз
 
-    win.notifySessionReady(s);
+    win.notifySessionReady(s);       // компьютердегі хабарлама
+    telegram.notifySession(s);       // телефонға (Telegram қосулы болса)
   }
 
   // Тізімнен шыққан сессияларды ұмытамыз (жады өспесін)
@@ -224,6 +226,9 @@ async function tickLimits(force) {
     // Хабарлама тек НАҚТЫ дерекке шығады — демо режим жалған ескерту бермейді
     if (!demo.on && latest.limits && latest.limits.ok) {
       win.checkLimitAlerts(latest.limits.limits);   // 80%-дан асса — хабарлама
+      for (const l of latest.limits.limits) {
+        if (l && typeof l.percent === 'number' && l.percent >= 80) telegram.notifyLimit(l);
+      }
     }
   } catch (e) {
     /* елемейміз */
@@ -277,6 +282,7 @@ function tickHealth() {
       const text = parts.join('\n    ');
       history.appendLog(text);
       console.warn('[FalconHUD] ' + text);
+      if (!demo.on) telegram.notifyParser(h);
     }
   }
 

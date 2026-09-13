@@ -7,6 +7,7 @@
 const { app, BrowserWindow, Tray, Menu, screen, globalShortcut, nativeImage, Notification, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const telegram = require('./telegram');
 
 const STATE_FILE = () => path.join(app.getPath('userData'), 'window-state.json');
 
@@ -366,6 +367,8 @@ function updateTrayMenu() {
   if (!tray) return;
   const visible = !!(win && !win.isDestroyed() && win.isVisible());
   const demoFlags = demoHooks.get() || { demo: false, empty: false };
+  let tg = { configured: false, enabled: false, lastError: null };
+  try { tg = telegram.status(); } catch { /* баптау оқылмаса — мәзір бәрібір ашылады */ }
   const menu = Menu.buildFromTemplate([
     { label: 'FalconHUD', enabled: false },
     { type: 'separator' },
@@ -395,6 +398,45 @@ function updateTrayMenu() {
       type: 'checkbox',
       checked: !!state.notifyReady,
       click: (item) => setNotifyReady(item.checked),
+    },
+    {
+      label: 'Telegram',
+      submenu: [
+        {
+          label: tg.configured ? 'Telegram-ға жіберу' : 'Telegram-ға жіберу (токен қойылмаған)',
+          type: 'checkbox',
+          checked: !!tg.enabled,
+          enabled: !!tg.configured,
+          click: (item) => { telegram.setEnabled(item.checked); updateTrayMenu(); },
+        },
+        { type: 'separator' },
+        {
+          label: 'Баптау файлын ашу…',
+          click: () => { try { shell.openPath(telegram.configFile()); } catch {} },
+        },
+        {
+          label: 'Сынақ хабарын жіберу',
+          enabled: !!tg.configured,
+          click: async () => {
+            const r = await telegram.sendTest();
+            try {
+              if (Notification.isSupported()) {
+                new Notification({
+                  title: 'FalconHUD — Telegram',
+                  body: r.ok ? 'Сынақ хабары жіберілді ✅' : ('Қате: ' + (r.error || '—')),
+                  icon: iconPath('icon.png') || undefined,
+                }).show();
+              }
+            } catch {}
+            updateTrayMenu();
+          },
+        },
+        { type: 'separator' },
+        {
+          label: tg.lastError ? ('Соңғы қате: ' + String(tg.lastError).slice(0, 50)) : 'Қате жоқ',
+          enabled: false,
+        },
+      ],
     },
     { type: 'separator' },
     {

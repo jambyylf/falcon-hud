@@ -42,6 +42,8 @@ id_rsa*
 history.json
 window-state.json
 parser-issues.log
+telegram.json
+telegram.log
 falconhud/
 usage-cache.json
 limits-cache.json
