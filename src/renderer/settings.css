@@ -1,0 +1,278 @@
+/* settings.css — баптау терезесі.
+   Негізгі виджеттің стилін (style.css) мұрагерлейді, үстіне форма элементтерін қосады. */
+
+.st-body { font-size: 12.5px; }
+
+.st-hud { border-radius: 14px; }
+
+.st-title { cursor: default; gap: 8px; align-items: baseline; }
+.st-sub {
+  font-size: 10px;
+  color: var(--ink-3);
+  letter-spacing: 0.4px;
+}
+
+/* Тақырып жолағын сүйреуге болады, ішіндегі жазу емес */
+.st-hud .bar { -webkit-app-region: drag; height: 34px; }
+.st-hud .bar-id { -webkit-app-region: drag; }
+.st-hud .bar-actions { -webkit-app-region: no-drag; }
+
+/* ─────────────────────────── Мазмұн ─────────────────────────── */
+.st-main {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.st-main::-webkit-scrollbar { width: 8px; }
+.st-main::-webkit-scrollbar-track { background: transparent; }
+.st-main::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.st-card {
+  background: var(--fill);
+  border: 1px solid var(--edge-soft);
+  border-radius: var(--r-md);
+  padding: 12px 13px 13px;
+}
+
+.st-head {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.9px;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  margin-bottom: 8px;
+}
+
+.st-note {
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--ink-3);
+  margin-bottom: 10px;
+}
+.st-note--sm { font-size: 9.5px; margin: 8px 0 0; }
+.st-note code, .st-steps code {
+  background: rgba(255,255,255,0.07);
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.92em;
+  color: #C4B5FD;
+}
+
+.st-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-2);
+  margin-bottom: 6px;
+}
+
+.st-sep {
+  height: 1px;
+  background: var(--edge-soft);
+  margin: 11px 0;
+}
+
+/* ───────────────────────── Күй жолағы ───────────────────────── */
+.st-state {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--ink);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--edge-soft);
+  border-radius: var(--r-sm);
+  padding: 7px 9px;
+  margin-bottom: 11px;
+}
+.st-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  flex: 0 0 auto;
+}
+.st-dot.is-ok   { background: var(--ok); }
+.st-dot.is-warn { background: var(--warn); }
+.st-dot.is-bad  { background: var(--bad); }
+
+/* ───────────────────────── Қадамдар ───────────────────────── */
+.st-steps {
+  margin: 0 0 11px 16px;
+  padding: 0;
+  font-size: 10.5px;
+  line-height: 1.7;
+  color: var(--ink-2);
+}
+.st-steps li { margin-bottom: 2px; }
+.st-steps b { color: var(--ink); }
+
+/* ───────────────────────── Өрістер ───────────────────────── */
+.st-row { display: flex; gap: 6px; align-items: center; }
+.st-row--btns { gap: 6px; }
+
+.st-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: rgba(0,0,0,0.32);
+  border: 1px solid var(--edge);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  font: inherit;
+  font-size: 11px;
+  font-family: ui-monospace, Consolas, monospace;
+  padding: 7px 9px;
+  outline: none;
+  transition: border-color 120ms var(--ease);
+}
+.st-input:focus { border-color: var(--accent-line); }
+.st-input::placeholder { color: var(--ink-3); }
+
+/* ───────────────────────── Түймелер ───────────────────────── */
+.st-btn {
+  border: 1px solid var(--edge);
+  background: rgba(255,255,255,0.05);
+  color: var(--ink);
+  border-radius: var(--r-sm);
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 120ms var(--ease), border-color 120ms var(--ease), transform 100ms var(--ease);
+}
+.st-btn:hover { background: rgba(255,255,255,0.1); }
+.st-btn:active { transform: scale(0.98); }
+.st-btn:disabled { opacity: 0.45; cursor: default; transform: none; }
+
+.st-btn--primary {
+  background: var(--accent-dim);
+  border-color: var(--accent-line);
+  color: #DDD6FE;
+  font-weight: 600;
+}
+.st-btn--primary:hover { background: rgba(139, 92, 246, 0.24); }
+
+.st-btn--danger { color: #FCA5A5; border-color: rgba(239,68,68,0.3); }
+.st-btn--danger:hover { background: rgba(239,68,68,0.12); }
+
+.st-btn--ghost { padding: 7px 10px; }
+
+.st-wide { width: 100%; margin-top: 8px; }
+
+/* ───────────────────────── Қосқыштар ───────────────────────── */
+.st-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 11.5px;
+  color: var(--ink);
+  padding: 5px 0;
+  cursor: pointer;
+  user-select: none;
+}
+.st-toggle--sm { font-size: 10.5px; color: var(--ink-2); padding: 3px 0; }
+
+.st-toggle input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 32px; height: 18px;
+  flex: 0 0 auto;
+  border-radius: 99px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid var(--edge);
+  position: relative;
+  cursor: pointer;
+  transition: background 160ms var(--ease), border-color 160ms var(--ease);
+}
+.st-toggle input[type="checkbox"]::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--ink-2);
+  transition: transform 160ms var(--ease), background 160ms var(--ease);
+}
+.st-toggle input[type="checkbox"]:checked {
+  background: var(--accent-dim);
+  border-color: var(--accent-line);
+}
+.st-toggle input[type="checkbox"]:checked::after {
+  transform: translateX(14px);
+  background: var(--accent);
+}
+.st-toggle--sm input[type="checkbox"] { width: 28px; height: 16px; }
+.st-toggle--sm input[type="checkbox"]::after { width: 10px; height: 10px; }
+.st-toggle--sm input[type="checkbox"]:checked::after { transform: translateX(12px); }
+
+/* ───────────────────────── Жүгіргі ───────────────────────── */
+.st-range { display: flex; align-items: center; gap: 10px; }
+.st-range input[type="range"] {
+  flex: 1 1 auto;
+  appearance: none;
+  -webkit-appearance: none;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--rail);
+  outline: none;
+  cursor: pointer;
+}
+.st-range input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #0B0B12;
+  cursor: pointer;
+}
+.st-range-val {
+  flex: 0 0 auto;
+  min-width: 38px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* ───────────────────────── Хабарлама ───────────────────────── */
+.st-msg {
+  margin-top: 10px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  border-radius: var(--r-sm);
+  padding: 8px 10px;
+  animation: fadein 200ms var(--ease);
+}
+.st-msg.is-ok {
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #86EFAC;
+}
+.st-msg.is-bad {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #FCA5A5;
+}
+.st-msg.is-info {
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  color: #FDE68A;
+}
+
+.st-foot {
+  text-align: center;
+  font-size: 9px;
+  color: var(--ink-3);
+  padding: 2px 0 4px;
+}

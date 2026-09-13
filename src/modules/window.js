@@ -50,6 +50,7 @@ function defaultState() {
     alwaysOnTop: true,
     autoLaunch: false,
     notifyReady: true,        // сессия дайын болғанда хабарлау
+    alertPercent: 80,         // лимит ескертуінің шегі, %
   };
 }
 
@@ -361,6 +362,72 @@ function isAutoLaunchEnabled() {
   }
 }
 
+// ---------------------------------------------------------- баптау терезесі
+//
+// Бөлек терезе: Telegram, хабарламалар, терезе баптаулары және баға файлы.
+// Мақсаты — қолданушыға JSON файл өңдеудің қажеті болмауы.
+
+let settingsWin = null;
+
+function openSettings() {
+  if (settingsWin && !settingsWin.isDestroyed()) {
+    settingsWin.show();
+    settingsWin.focus();
+    return settingsWin;
+  }
+
+  const wa = screen.getPrimaryDisplay().workArea;
+  const w = 430;
+  const h = Math.min(680, wa.height - 80);
+
+  settingsWin = new BrowserWindow({
+    width: w,
+    height: h,
+    x: Math.round(wa.x + (wa.width - w) / 2),
+    y: Math.round(wa.y + (wa.height - h) / 2),
+    minWidth: 380,
+    minHeight: 420,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: true,
+    resizable: true,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: false,        // тапсырмалар тақтасында көрінсін — табу оңай
+    alwaysOnTop: false,
+    show: false,
+    icon: iconPath('icon.png') || undefined,
+    title: 'FalconHUD — Баптау',
+    webPreferences: {
+      preload: path.join(__dirname, '..', 'preload-settings.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+      webSecurity: true,
+      spellcheck: false,
+      devTools: !app.isPackaged,
+    },
+  });
+
+  settingsWin.loadFile(path.join(__dirname, '..', 'renderer', 'settings.html'));
+  settingsWin.once('ready-to-show', () => { settingsWin.show(); settingsWin.focus(); });
+  settingsWin.on('closed', () => { settingsWin = null; updateTrayMenu(); });
+
+  settingsWin.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  settingsWin.webContents.on('will-navigate', (e) => e.preventDefault());
+
+  return settingsWin;
+}
+
+function closeSettings() {
+  if (settingsWin && !settingsWin.isDestroyed()) settingsWin.close();
+  return true;
+}
+
 // ---------------------------------------------------------------- трей
 
 function updateTrayMenu() {
@@ -393,6 +460,11 @@ function updateTrayMenu() {
       checked: isAutoLaunchEnabled(),
       click: (item) => setAutoLaunch(item.checked),
     },
+    {
+      label: '⚙  Баптау…',
+      click: () => openSettings(),
+    },
+    { type: 'separator' },
     {
       label: 'Сессия дайын болғанда хабарлау',
       type: 'checkbox',
@@ -528,13 +600,25 @@ function notifySessionReady(session) {
 }
 
 // Ескерту шегі, %. Әдепкі — 80. Тексеру үшін FALCONHUD_ALERT_PERCENT арқылы өзгертуге болады.
-const ALERT_PERCENT = (() => {
-  const v = Number(process.env.FALCONHUD_ALERT_PERCENT);
+// Шек баптау терезесінен өзгертіледі. FALCONHUD_ALERT_PERCENT орта айнымалысы
+// бар болса — ол басым (тексеруге ыңғайлы).
+function alertPercent() {
+  const env = Number(process.env.FALCONHUD_ALERT_PERCENT);
+  if (Number.isFinite(env) && env > 0 && env <= 100) return env;
+  const v = state && Number(state.alertPercent);
   return Number.isFinite(v) && v > 0 && v <= 100 ? v : 80;
-})();
+}
 
-// Ескерту қайта шығатын шек — лимит осыдан төмен түссе, қайта ескертеміз
-const RESET_PERCENT = Math.max(0, ALERT_PERCENT - 10);
+function setAlertPercent(value) {
+  if (!state) return 80;
+  const v = Number(value);
+  if (Number.isFinite(v) && v >= 1 && v <= 100) {
+    state.alertPercent = Math.round(v);
+    notifiedLimits = new Set();   // шек өзгерді — ескертулерді қайта санаймыз
+    scheduleSave();
+  }
+  return state.alertPercent;
+}
 
 // Лимит шектен асса — бір рет жүйелік хабарлама
 function checkLimitAlerts(limits) {
@@ -544,7 +628,8 @@ function checkLimitAlerts(limits) {
     if (!l || typeof l.percent !== 'number') continue;
     const key = `${l.id}:${l.resetsAt || 0}`;
 
-    if (l.percent >= ALERT_PERCENT) {
+    const limit = alertPercent();
+    if (l.percent >= limit) {
       if (notifiedLimits.has(key)) continue;
       notifiedLimits.add(key);
       try {
@@ -559,7 +644,7 @@ function checkLimitAlerts(limits) {
         });
         n.show();
       } catch { /* хабарлама шықпаса — маңызды емес */ }
-    } else if (l.percent < RESET_PERCENT) {
+    } else if (l.percent < Math.max(0, limit - 10)) {
       // Лимит қайта төмендесе — келесі рет қайта ескерте аламыз
       notifiedLimits.delete(key);
     }
@@ -583,6 +668,8 @@ function getState() {
     mode: state ? state.mode : 'full',
     alwaysOnTop: state ? !!state.alwaysOnTop : true,
     autoLaunch: isAutoLaunchEnabled(),
+    notifyReady: state ? !!state.notifyReady : true,
+    alertPercent: alertPercent(),
     platform: process.platform,
   };
 }
@@ -597,7 +684,8 @@ module.exports = {
   createWindow, createTray, registerShortcut, unregisterShortcuts, setDemoHooks,
   beginManualDrag, endManualDrag,
   setMode, toggleMode, toggleVisibility, setAlwaysOnTop, setAutoLaunch,
-  checkLimitAlerts, notifySessionReady, setNotifyReady,
+  checkLimitAlerts, notifySessionReady, setNotifyReady, setAlertPercent, alertPercent,
+  openSettings, closeSettings,
   sendToRenderer, getWindow, getState, updateTrayMenu, destroy,
   saveStateNow,
 };

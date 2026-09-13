@@ -3,7 +3,7 @@
 // Барлық дерек осында жиналып, IPC арқылы renderer-ге жіберіледі.
 // Renderer-де Node.js жоқ — ол тек көрсетумен айналысады.
 
-const { app, ipcMain } = require('electron');
+const { app, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -135,7 +135,13 @@ if (autostartFlag) {
   if (!gotLock) {
     app.quit();
   } else {
-    app.on('second-instance', () => {
+    // Екінші көшірме іске қосылса — жаңасы шығып қалады, бірақ аргументін
+    // осында береді. «FalconHUD.exe --settings» деп қосса, баптау терезесі ашылады.
+    app.on('second-instance', (_e, argv) => {
+      if (Array.isArray(argv) && argv.includes('--settings')) {
+        win.openSettings();
+        return;
+      }
       const w = win.getWindow();
       if (w && !w.isDestroyed()) { w.show(); w.focus(); }
     });
@@ -480,6 +486,85 @@ function registerIpc() {
 
   // Жоба бөлшегі — тізімде бір жобаны басқанда ашылады
   ipcMain.handle('hud:project-detail', (_e, projectDir, name) => projectDetail(projectDir, name));
+
+  // ─────────────────────── БАПТАУ ТЕРЕЗЕСІ ───────────────────────
+  // Мақсаты: қолданушыға JSON файл өңдеудің қажеті болмауы.
+  // ЕСКЕРТУ: бот токені бұл арналардың ЕШҚАЙСЫСЫНАН қайтарылмайды.
+
+  ipcMain.handle('settings:get-all', () => {
+    const w = win.getState();
+    let tg = { configured: false };
+    try { tg = telegram.status(); } catch {}
+    return {
+      notifyReady: w.notifyReady,
+      alwaysOnTop: w.alwaysOnTop,
+      autoLaunch: w.autoLaunch,
+      alertPercent: win.alertPercent(),
+      telegram: tg,
+      version: app.getVersion(),
+    };
+  });
+
+  ipcMain.handle('settings:close', () => win.closeSettings());
+
+  ipcMain.handle('settings:tg-status', async () => {
+    try {
+      await telegram.fetchBotName();          // бот атын алып қоямыз
+      return telegram.status();
+    } catch {
+      return { configured: false };
+    }
+  });
+
+  ipcMain.handle('settings:tg-set-token', async (_e, token) => {
+    try {
+      telegram.setToken(token);
+      const name = await telegram.fetchBotName();
+      if (!name) {
+        const st = telegram.status();
+        telegram.setToken('');               // жарамсыз токенді сақтап қоймаймыз
+        return { ok: false, error: st.lastError || 'Бот табылмады' };
+      }
+      win.updateTrayMenu();
+      return { ok: true, botName: name };
+    } catch (e) {
+      return { ok: false, error: e && e.message };
+    }
+  });
+
+  ipcMain.handle('settings:tg-clear-token', () => {
+    telegram.clearToken();
+    telegram.stopPolling();
+    win.updateTrayMenu();
+    return true;
+  });
+
+  ipcMain.handle('settings:tg-set-enabled', (_e, v) => {
+    const on = telegram.setEnabled(v);
+    if (on) {
+      telegram.setStatusProvider(buildStatusText);
+      telegram.startPolling();
+    } else {
+      telegram.stopPolling();
+    }
+    win.updateTrayMenu();
+    return on;
+  });
+
+  ipcMain.handle('settings:tg-set-send', (_e, opts) => telegram.setSendOptions(opts));
+
+  ipcMain.handle('settings:tg-test', async () => {
+    try { return await telegram.sendTest(); }
+    catch (e) { return { ok: false, error: e && e.message }; }
+  });
+
+  ipcMain.handle('settings:set-notify-ready', (_e, v) => win.setNotifyReady(v));
+  ipcMain.handle('settings:set-alert-percent', (_e, n) => win.setAlertPercent(n));
+  ipcMain.handle('settings:set-auto-launch', (_e, v) => win.setAutoLaunch(v));
+
+  ipcMain.handle('settings:open-pricing', () => {
+    try { shell.openPath(pricingPath()); return true; } catch { return false; }
+  });
   ipcMain.handle('hud:quit', () => { app.isQuiting = true; app.quit(); return true; });
 
   ipcMain.handle('hud:set-always-on-top', (_e, v) => win.setAlwaysOnTop(v));
@@ -558,6 +643,9 @@ app.whenReady().then(async () => {
   tickAgents();
   tickLimits(true);
   win.sendToRenderer('flags', Object.assign({}, flags));
+
+  // «--settings» деп қосылса — баптау терезесін бірден ашамыз
+  if (process.argv.includes('--settings')) win.openSettings();
 
   // Мерзімді айналымдар
   timers.push(setInterval(tickSystem, TICK_SYSTEM_MS));

@@ -33,6 +33,7 @@ const state = {
   sessionSentAt: new Map(),   // sessionId → уақыт
   limitSent: new Set(),       // "limitId:resetsAt"
   parserSentAt: 0,
+  botName: null,              // @botusername — баптау терезесінде көрсету үшін
 };
 
 // ──────────────────────────────────────────────────── жолдар мен баптау
@@ -137,8 +138,54 @@ function status() {
     configured: isConfigured(),
     enabled: isEnabled(),
     hasChat: !!c.chatId,
+    botName: state.botName || null,
+    send: Object.assign({}, c.send),
     lastError: state.lastError,
+    // ЕСКЕРТУ: токеннің ӨЗІ ешқашан қайтарылмайды — тек «қойылған/қойылмаған».
   };
+}
+
+// ─────────── Баптау терезесінен өзгерту ───────────
+// Токен интерфейске ЕШҚАШАН жіберілмейді, тек осы жерден жаңасын қоюға болады.
+
+function setToken(token) {
+  const c = load();
+  const t = String(token || '').trim();
+  c.botToken = t;
+  c.chatId = '';              // токен ауысса, чат та қайта табылуы керек
+  state.botName = null;
+  state.lastError = null;
+  save();
+  log(t ? 'токен жаңартылды' : 'токен өшірілді');
+  return isConfigured();
+}
+
+function clearToken() { return setToken(''); }
+
+function setSendOptions(opts) {
+  const c = load();
+  if (opts && typeof opts === 'object') {
+    for (const k of ['sessions', 'limits', 'parser']) {
+      if (k in opts) c.send[k] = !!opts[k];
+    }
+  }
+  save();
+  return Object.assign({}, c.send);
+}
+
+// Бот атын бір рет сұрап, есте сақтаймыз (баптау терезесінде көрсету үшін)
+async function fetchBotName() {
+  if (!isConfigured()) return null;
+  if (state.botName) return state.botName;
+  try {
+    const me = await call('getMe');
+    state.botName = me && me.username ? '@' + me.username : null;
+    state.lastError = null;
+    return state.botName;
+  } catch (e) {
+    state.lastError = e.message;
+    return null;
+  }
 }
 
 // ──────────────────────────────────────────────────── Telegram API
@@ -472,5 +519,6 @@ module.exports = {
   load, save, status, isConfigured, isEnabled, setEnabled,
   notifySession, notifyLimit, notifyParser, sendTest,
   setStatusProvider, startPolling, stopPolling,
+  setToken, clearToken, setSendOptions, fetchBotName,
   configFile, logFile, dataDir,
 };
