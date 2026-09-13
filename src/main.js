@@ -99,15 +99,47 @@ function pushAll() {
   win.sendToRenderer('flags', Object.assign({}, flags));
 }
 
-// Бір ғана көшірме жұмыс істесін
-const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) {
-  app.quit();
-} else {
-  app.on('second-instance', () => {
-    const w = win.getWindow();
-    if (w && !w.isDestroyed()) { w.show(); w.focus(); }
+// --------------------------------------------- автоқосылуды команда жолынан баптау
+//
+// «Компьютер қосылғанда іске қосу» баптауын трейден де, командадан да қоюға болады:
+//     FalconHUD.exe --enable-autostart
+//     FalconHUD.exe --disable-autostart
+// Тіркелетін жол — ОСЫ файлдың жолы. Сондықтан оны ОРНАТЫЛҒАН нұсқадан іске қосу
+// керек: әйтпесе автоқосылуға әзірлеу режиміндегі уақытша жол жазылып қалады.
+const autostartFlag = process.argv.find(
+  (a) => a === '--enable-autostart' || a === '--disable-autostart'
+);
+
+if (autostartFlag) {
+  // Бұл — қысқа бір реттік режим: баптап, бірден шығамыз. Терезе ашылмайды.
+  const turnOn = autostartFlag === '--enable-autostart';
+  app.whenReady().then(() => {
+    let ok = false;
+    try {
+      app.setLoginItemSettings({
+        openAtLogin: turnOn,
+        openAsHidden: process.platform === 'darwin',
+        args: [],
+      });
+      ok = !!app.getLoginItemSettings().openAtLogin === turnOn;
+    } catch (e) {
+      console.error('[FalconHUD] автоқосылу орнатылмады:', e && e.message);
+    }
+    console.log('[FalconHUD] автоқосылу: ' + (turnOn ? 'ҚОСЫЛДЫ' : 'өшірілді') +
+                (ok ? ' ✓' : ' — ТЕКСЕРУ СӘТСІЗ'));
+    app.exit(ok ? 0 : 1);
   });
+} else {
+  // Бір ғана көшірме жұмыс істесін
+  const gotLock = app.requestSingleInstanceLock();
+  if (!gotLock) {
+    app.quit();
+  } else {
+    app.on('second-instance', () => {
+      const w = win.getWindow();
+      if (w && !w.isDestroyed()) { w.show(); w.focus(); }
+    });
+  }
 }
 
 // --------------------------------------------------------------- pricing.json жолы
@@ -360,6 +392,9 @@ function registerIpc() {
 // --------------------------------------------------------------- іске қосу
 
 app.whenReady().then(async () => {
+  // --enable-autostart режимінде терезе ашылмайды — жоғарыда баптап, шығып кетеміз
+  if (autostartFlag) return;
+
   // Windows-та хабарламалар дұрыс көрінуі үшін
   if (process.platform === 'win32') app.setAppUserModelId('kz.falcon.hud');
 
