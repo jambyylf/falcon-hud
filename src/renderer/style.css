@@ -179,6 +179,10 @@ html, body {
   animation: beat 2s var(--ease) infinite;
 }
 .beacon--sm { width: 6px; height: 6px; }
+/* Жаңарту түймесі жүріп жатқанда айналады (тек transform — арзан) */
+.gbtn.is-spinning svg { animation: spin 900ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 .beacon.is-idle { background: var(--ink-3); }
 .beacon.is-idle::after { animation: none; opacity: 0; }
 

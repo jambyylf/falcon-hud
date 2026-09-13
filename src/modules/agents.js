@@ -11,6 +11,7 @@ const fsp = require('fs/promises');
 const path = require('path');
 const { exec } = require('child_process');
 const { projectsDir, projectDirToName, cwdToName } = require('./paths');
+const live = require('./live');
 const { normalizeModel, modelLabel } = require('./usage-parser');
 
 const ACTIVE_MS = 3 * 60 * 1000;          // Соңғы 3 минутта жаңарса — жұмыс істеп жатыр
@@ -437,10 +438,26 @@ async function collect() {
       if (!lines.length) continue;
       const info = analyzeSession(lines);
       const sessionId = e.name.replace(/\.jsonl$/, '');
-      const st2 = sessionState(info, st.mtimeMs, now);
+      // Терминал жабылып қалды ма? Claude Code шыққанда өз жазбасын өшіреді,
+      // сондықтан жазбасы жоқ (не процесі өлген) сессияны көрсетудің мәні жоқ.
+      if (live.isClosed(sessionId)) continue;
+
+      let st2 = sessionState(info, st.mtimeMs, now);
+
+      // Claude Code өзінің күйін жазып отырады. Ол — біздің болжамымыздан
+      // сенімдірек: «busy» десе, модель шынымен жұмыс істеп жатыр.
+      const rec = live.lookup(sessionId);
+      if (rec && rec.status === 'busy' && !needsYou(st2.state)) {
+        st2 = { state: 'working', sinceTs: st2.sinceTs, tool: st2.tool };
+      } else if (rec && rec.status === 'busy' && st2.state === 'waiting') {
+        // Транскрипт «кезек бітті» дейді, ал Claude Code «жұмыс істеп жатырмын»
+        // дейді. Соңғысы дұрыс: жаңа кезек басталған, әлі жазылмаған.
+        st2 = { state: 'working', sinceTs: rec.statusAt || st2.sinceTs, tool: null };
+      }
 
       sessions.push({
         sessionId,
+        pid: rec ? rec.pid : null,
         projectDir: dirName,
         project: cwdToName(info.cwd) || projectDirToName(dirName),
         model: info.model,

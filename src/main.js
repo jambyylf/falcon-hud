@@ -26,6 +26,7 @@ const TICK_AGENTS_MS = 5000;         // Агенттер — 5 секунд са
 const TICK_LIMITS_MS = 60 * 1000;    // Лимит — минут сайын тексереміз (модуль өзі 5 мин кэштейді)
 const TICK_HISTORY_MS = 10 * 60 * 1000;  // Тарих — 10 минут сайын бүгінгі жиынтық жаңарады
 const TICK_HEALTH_MS = 30 * 1000;    // Parser денсаулығы — жарты минут сайын
+const TICK_FULL_MS = 10 * 60 * 1000;     // Толық жаңарту — 10 минут сайын бәрі нөлден оқылады
 
 const timers = [];
 
@@ -36,6 +37,7 @@ const latest = {
   limits: null,
   system: null,
   history: { ok: false, days: 0, window30: null },
+  refreshedAt: 0,          // соңғы ТОЛЫҚ жаңарту сәті
 };
 
 // --------------------------------------------------------------- ДЕМО РЕЖИМ
@@ -272,6 +274,36 @@ async function tickSystem() {
   } finally {
     systemPending = false;
   }
+}
+
+// Толық жаңарту: бәрін нөлден қайта оқимыз.
+// Бақылау (watcher) бір өзгерісті өткізіп жіберсе де, осы қалпына келтіреді.
+let refreshing = false;
+
+async function fullRefresh(reason) {
+  if (refreshing) return latest.refreshedAt;
+  refreshing = true;
+  emitFlags({ refreshing: true });
+  try {
+    await Promise.all([
+      tickUsage(true),        // true = бүкіл жазбаны қайта оқу
+      tickAgents(),
+      tickSystem(),
+      tickLimits(true),       // true = кэшті елемей, желіден сұрау
+    ]);
+    await tickHistory();
+    tickHealth();
+    latest.refreshedAt = Date.now();
+    if (reason) console.log('[FalconHUD] толық жаңарту (' + reason + ')');
+  } finally {
+    refreshing = false;
+    emitFlags({ refreshing: false, refreshedAt: latest.refreshedAt });
+  }
+  return latest.refreshedAt;
+}
+
+function emitFlags(extra) {
+  win.sendToRenderer('flags', Object.assign({}, flags, extra || {}));
 }
 
 async function tickLimits(force) {
@@ -619,10 +651,8 @@ function registerIpc() {
 
   // Қолмен жаңарту
   ipcMain.handle('hud:refresh', async () => {
-    await Promise.all([tickUsage(false), tickAgents(), tickSystem(), tickLimits(true)]);
-    await tickHistory();
-    tickHealth();
-    return true;
+    await fullRefresh('қолмен');
+    return latest.refreshedAt;
   });
 }
 
@@ -715,8 +745,12 @@ app.whenReady().then(async () => {
   timers.push(setInterval(tickHistory, TICK_HISTORY_MS));
   timers.push(setInterval(tickHealth, TICK_HEALTH_MS));
 
-  // Әр 10 минутта толық шолу — бақылау бір нәрсені өткізіп жіберсе, қалпына келеді
-  timers.push(setInterval(() => tickUsage(true), 10 * 60 * 1000));
+  // Әр 10 минутта — ТОЛЫҚ жаңарту (бәрін нөлден қайта оқу).
+  // Бақылау бір нәрсені өткізіп жіберсе, осы қалпына келтіреді.
+  timers.push(setInterval(() => fullRefresh('мерзімді'), TICK_FULL_MS));
+
+  // Қосылған бойда бір рет — дереу толық сурет болсын
+  setTimeout(() => fullRefresh('іске қосылғанда'), 3000);
 });
 
 // Терезе жабылса да апп трейде қала береді
