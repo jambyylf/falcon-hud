@@ -347,6 +347,111 @@ function projectDetail(projectDir, name) {
   return Object.assign({}, detail, { name: projName, sessions, days });
 }
 
+// ------------------------------------------------- Telegram /status мәтіні
+// Телефоннан «/status» деп жазғанда осы мәтін жіберіледі.
+
+function tgDur(ms) {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return s + ' с';
+  const m = Math.floor(s / 60);
+  if (m < 60) return m + ' мин';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + ' сағ' + (m % 60 ? ' ' + (m % 60) + ' мин' : '');
+  return Math.floor(h / 24) + ' күн';
+}
+
+function tgCompact(n) {
+  if (n == null || !Number.isFinite(n)) return '—';
+  if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return Math.round(n / 1e3) + 'K';
+  return String(Math.round(n));
+}
+
+function tgEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+const TG_STATE = {
+  waiting: '⏳ сізді күтуде',
+  asking:  '❓ жауап күтуде',
+  stalled: '🔒 рұқсат күтуде',
+  agent:   '🟣 агент жүруде',
+  working: '🟢 жұмыста',
+};
+
+function buildStatusText() {
+  const now = Date.now();
+  const lines = ['🦅 <b>FalconHUD</b>'];
+
+  // ── Сессиялар
+  const a = latest.agents;
+  if (a && Array.isArray(a.sessions)) {
+    const waiting = a.sessions.filter((s) => s.needsYou);
+    const working = a.sessions.filter((s) => !s.needsYou);
+
+    lines.push('');
+    if (waiting.length) {
+      lines.push('<b>Сізді күтіп тұр (' + waiting.length + ')</b>');
+      for (const s of waiting.slice(0, 8)) {
+        lines.push('• <b>' + tgEsc(s.project) + '</b> — ' +
+          (TG_STATE[s.state] || 'күтуде') + ' · ' + tgDur(now - s.stateSinceTs));
+      }
+    } else {
+      lines.push('<b>Күтіп тұрған сессия жоқ</b> ✅');
+    }
+
+    if (working.length) {
+      lines.push('');
+      lines.push('<b>Жұмыста (' + working.length + ')</b>');
+      for (const s of working.slice(0, 6)) {
+        const tool = s.lastTool ? s.lastTool.tool : '';
+        lines.push('• ' + tgEsc(s.project) + (tool ? ' — ' + tgEsc(tool) : '') +
+          ' · ' + tgDur(now - s.stateSinceTs));
+      }
+    }
+    if (a.counts && a.counts.runningSubagents) {
+      lines.push('');
+      lines.push('<i>' + a.counts.runningSubagents + ' subagent жүріп жатыр</i>');
+    }
+  }
+
+  // ── Лимиттер
+  const L = latest.limits;
+  lines.push('');
+  if (L && L.ok && L.limits.length) {
+    lines.push('<b>Лимиттер</b> <i>(жұмсалғаны)</i>');
+    for (const l of L.limits) {
+      const left = l.resetsAt ? l.resetsAt - now : 0;
+      const mark = l.percent >= 80 ? '🔴' : (l.percent >= 50 ? '🟡' : '🟢');
+      lines.push(mark + ' ' + tgEsc(l.label) + ' — <b>' + Math.round(l.percent) + '%</b>' +
+        (left > 0 ? ' · ' + tgDur(left) + ' кейін' : ''));
+    }
+  } else {
+    lines.push('<b>Лимиттер</b> — дерек жоқ');
+  }
+
+  // ── Бүгінгі токен
+  const u = latest.usage;
+  if (u && u.windows && u.windows.today) {
+    const t = u.windows.today;
+    lines.push('');
+    lines.push('<b>Бүгін</b> — ' + tgCompact(t.total) + ' токен · $' + t.cost.toFixed(2));
+    const top = (u.projects && u.projects.list) ? u.projects.list.slice(0, 3) : [];
+    if (top.length) {
+      lines.push('<i>' + top.map((p) => tgEsc(p.name) + ' ' + tgCompact(p.tokens)).join(' · ') + '</i>');
+    }
+  }
+
+  if (flags.parserWarning) {
+    lines.push('');
+    lines.push('⚠️ <i>' + tgEsc(flags.parserWarning) + '</i>');
+  }
+
+  return lines.join('\n');
+}
+
 // --------------------------------------------------------------- IPC арналары
 
 function registerIpc() {
@@ -423,6 +528,14 @@ app.whenReady().then(async () => {
   // Тарихты оқып қоямыз (әлі бос болуы мүмкін)
   await history.load().catch(() => {});
 
+  // Telegram: /status командасын тыңдау
+  try {
+    telegram.setStatusProvider(buildStatusText);
+    telegram.startPolling();
+  } catch (e) {
+    console.error('[FalconHUD] Telegram сұрауы басталмады:', e && e.message);
+  }
+
   // Іске қосу диагностикасы — бірдеңе істемей қалса, терминалда бірден көрінеді
   console.log(
     '[FalconHUD] трей: ' + (trayInfo && trayInfo.ok ? 'қосылды' : 'ҚОСЫЛМАДЫ') +
@@ -479,6 +592,7 @@ app.on('will-quit', () => {
   for (const t of timers) clearInterval(t);
   timers.length = 0;
   usage.stopWatching();
+  try { telegram.stopPolling(); } catch {}
   // Шығар алдында бүгінгі жиынтықты соңғы рет жазып қалдырамыз
   try {
     history.update(usage.rawEvents(), usage.eventCost);

@@ -348,6 +348,95 @@ function notifyParser(health) {
   return enqueue(lines.join('\n'));
 }
 
+// ───────────────────────── КІРІС КОМАНДАЛАР (/status) ─────────────────────────
+//
+// Телефоннан ботқа /status деп жазсаңыз — толық сурет келеді.
+// Webhook қоймаймыз: getUpdates арқылы 30 секунд сайын сұраймыз (long polling
+// емес — виджет басқа жұмысын жалғастыра беруі керек).
+
+const POLL_MS = 30 * 1000;
+
+let pollTimer = null;
+let updateOffset = 0;
+let statusProvider = null;   // main.js толтырады: () => мәтін
+let pollStartedAt = 0;       // осыдан ЕСКІ хабарларға жауап бермейміз
+
+// Ботқа жазылған жаңа командаларды тексеру
+async function poll() {
+  if (!isEnabled() || !statusProvider) return;
+
+  try {
+    const updates = await call('getUpdates', {
+      offset: updateOffset || undefined,
+      limit: 20,
+      timeout: 0,
+      allowed_updates: ['message'],
+    });
+    if (!Array.isArray(updates) || !updates.length) return;
+
+    const c = load();
+    for (const u of updates) {
+      if (u.update_id != null) updateOffset = u.update_id + 1;   // қайта оқымау үшін
+
+      const m = u.message;
+      if (!m || !m.text) continue;
+
+      // Апп қосылғанға дейінгі ескі командаларды қайта орындамаймыз
+      // (әйтпесе әр іске қосылғанда кешегі /start-қа жауап кетер еді)
+      const sentAt = (Number(m.date) || 0) * 1000;
+      if (sentAt && sentAt < pollStartedAt - 60 * 1000) continue;
+
+      // Тек өз чатымыздан келген команданы орындаймыз
+      const from = m.chat && m.chat.id != null ? String(m.chat.id) : null;
+      if (!from) continue;
+      if (c.chatId && from !== String(c.chatId)) continue;
+
+      const cmd = m.text.trim().toLowerCase().split(/[\s@]/)[0];
+      if (cmd === '/status' || cmd === '/start' || cmd === '/help') {
+        let text;
+        try {
+          text = cmd === '/status' ? statusProvider() : helpText();
+        } catch {
+          text = 'Дерек дайындалмады';
+        }
+        enqueue(text);
+      }
+    }
+  } catch (e) {
+    // Желі үзілсе — үнсіз өтеміз, келесі айналымда қайталанады
+    state.lastError = e.message;
+  }
+}
+
+function helpText() {
+  return [
+    '🦅 <b>FalconHUD</b>',
+    '',
+    '/status — қазіргі жағдай: күтудегі сессиялар, лимиттер, бүгінгі токен',
+    '',
+    '<i>Хабарлар өздігінен де келеді: сессия сізді күте бастағанда, лимит',
+    '80%-дан асқанда және дерек оқылмай қалғанда.</i>',
+  ].join('\n');
+}
+
+// main.js осы функцияны береді — /status сұралғанда шақырылады
+function setStatusProvider(fn) {
+  statusProvider = fn;
+}
+
+function startPolling() {
+  stopPolling();
+  if (!isEnabled()) return false;
+  pollStartedAt = Date.now();
+  pollTimer = setInterval(() => { poll().catch(() => {}); }, POLL_MS);
+  poll().catch(() => {});      // бірден бір рет
+  return true;
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
 // Баптауды тексеру — қолданушы «сынап көру» дегенде
 async function sendTest() {
   const c = load();
@@ -382,5 +471,6 @@ async function sendTest() {
 module.exports = {
   load, save, status, isConfigured, isEnabled, setEnabled,
   notifySession, notifyLimit, notifyParser, sendTest,
+  setStatusProvider, startPolling, stopPolling,
   configFile, logFile, dataDir,
 };
