@@ -513,6 +513,7 @@ function registerIpc() {
   ipcMain.handle('hud:hide', () => { const w = win.getWindow(); if (w) w.hide(); win.updateTrayMenu(); return true; });
 
   // «FalconHUD» жазуынан қолмен сүйреу
+  ipcMain.handle('hud:open-settings', () => { win.openSettings(); return true; });
   ipcMain.handle('hud:drag-start', () => win.beginManualDrag());
   ipcMain.handle('hud:drag-end', () => win.endManualDrag());
 

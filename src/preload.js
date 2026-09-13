@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld('hud', {
   toggleMode: () => ipcRenderer.invoke('hud:toggle-mode'),
   setMode: (mode) => ipcRenderer.invoke('hud:set-mode', String(mode)),
   hide: () => ipcRenderer.invoke('hud:hide'),
+  openSettings: () => ipcRenderer.invoke('hud:open-settings'),
 
   // «FalconHUD» жазуынан сүйреу (5 пикселден асқанда басталады)
   dragStart: () => ipcRenderer.invoke('hud:drag-start'),
