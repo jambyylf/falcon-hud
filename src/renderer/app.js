@@ -415,20 +415,20 @@ function updateLimit(row, item) {
 
   const foot = row.querySelector('.lim-foot');
   foot.dataset.reset = l.resetsAt || '';
-  foot.dataset.remain = Math.round(l.remaining);
   paintLimitFoot(foot);
 }
 
 // Секунд сайын жаңаратын бөлік
+// Пайыз ӘРҚАШАН «қанша ЖҰМСАЛДЫ» дегенді білдіреді — қалғанын емес.
+// Сондықтан жолақ та, сан да, түс те бір бағытта өседі.
 function paintLimitFoot(foot) {
-  const remain = foot.dataset.remain;
   const reset = Number(foot.dataset.reset);
   clear(foot);
-  foot.appendChild(document.createTextNode('қалды ' + remain + '%'));
+  foot.appendChild(document.createTextNode('жұмсалды'));
   const left = countdown(reset);
   if (left != null) {
     foot.appendChild(el('span', 'dot', '·'));
-    foot.appendChild(document.createTextNode(dur(left) + ' кейін'));
+    foot.appendChild(document.createTextNode(dur(left) + ' кейін жаңарады'));
   }
 }
 
@@ -1151,10 +1151,11 @@ function renderMini() {
   const l5 = L && L.ok ? pickLimit(L.limits, ['session', 'five_hour']) : null;
   const lw = L && L.ok ? pickLimit(L.limits, ['weekly_all', 'seven_day']) : null;
 
+  // Сақинаның ортасында да ЖҰМСАЛҒАН пайыз тұрады — доғамен бірдей бағытта.
   const ring = (root, lim) => {
     if (!lim) { setRing(root, 0, '—', '—'); return; }
     const left = countdown(lim.resetsAt);
-    setRing(root, lim.percent, Math.round(lim.remaining) + '%', left != null ? durTiny(left) : '—');
+    setRing(root, lim.percent, Math.round(lim.percent) + '%', left != null ? durTiny(left) : '—');
   };
   ring($('ring-5h'), l5);
   ring($('ring-week'), lw);
