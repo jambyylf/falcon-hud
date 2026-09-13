@@ -40,6 +40,7 @@ id_rsa*
 
 # ═══════════ FalconHUD өз файлдары (жеке дерек) ═══════════
 history.json
+limit-trend.json
 window-state.json
 parser-issues.log
 telegram.json
