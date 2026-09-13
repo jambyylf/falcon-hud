@@ -216,6 +216,28 @@ function setTrack(track, pct, opts) {
 
 const RING_C = 2 * Math.PI * 23;   // r=23 → шеңбер ұзындығы
 
+/* Сақина астындағы жазу.
+   Әдетте — терезе қашан жаңаратыны. Ал лимит сол жаңаруға ЖЕТПЕЙТІН болса,
+   маңыздысы басқа сан: қанша уақыт қалды. Сондықтан ондайда соны көрсетеміз. */
+function ringSub(lim) {
+  if (!lim) return { text: '—', cls: '' };
+  const out = countdown(lim.runsOutAt);
+  if (out != null) {
+    return { text: '⚠ ' + durTiny(out), cls: out < 30 * 60 ? 'lv-bad' : 'lv-warn' };
+  }
+  const left = countdown(lim.resetsAt);
+  return { text: left != null ? durTiny(left) : '—', cls: '' };
+}
+
+function setRingSub(root, lim) {
+  const node = root && root.querySelector('.ring-reset');
+  if (!node) return;
+  const sub = ringSub(lim);
+  setText(node, sub.text);
+  node.classList.toggle('lv-warn', sub.cls === 'lv-warn');
+  node.classList.toggle('lv-bad', sub.cls === 'lv-bad');
+}
+
 function setRing(root, pctUsed, remainText, resetText) {
   if (!root) return;
   const arc = root.querySelector('.ring-arc');
@@ -416,6 +438,8 @@ function updateLimit(row, item) {
 
   const foot = row.querySelector('.lim-foot');
   foot.dataset.reset = l.resetsAt || '';
+  foot.dataset.out = l.runsOutAt || '';
+  foot.dataset.last = l.willLast ? '1' : '';
   paintLimitFoot(foot);
 }
 
@@ -430,6 +454,27 @@ function paintLimitFoot(foot) {
   if (left != null) {
     foot.appendChild(el('span', 'dot', '·'));
     foot.appendChild(document.createTextNode(dur(left) + ' кейін жаңарады'));
+  }
+
+  // Болжам: осы қарқынмен лимит терезе жаңарғанша жете ме?
+  // «Жетеді» деген сөзді де көрсетеміз — тыныш тұрғаны да ақпарат.
+  const out = Number(foot.dataset.out);
+  if (out) {
+    const to = countdown(out);
+    if (to != null) {
+      foot.appendChild(el('span', 'dot', '·'));
+      // Сағатты тек бүгін-ертең болатын болжамға қосамыз: одан әрісіне
+      // «00:31» деген сан қай күні екені белгісіз болып, шатастырады.
+      const near = to < 12 * 3600;
+      const tag = el('span', 'lim-eta',
+        durTiny(to) + ' соң бітеді' + (near ? ' (' + clock(out) + ')' : ''));
+      // 30 минуттан аз қалса — қызыл, әйтпесе сары
+      tag.classList.add(to < 30 * 60 ? 'lv-bad' : 'lv-warn');
+      foot.appendChild(tag);
+    }
+  } else if (foot.dataset.last) {
+    foot.appendChild(el('span', 'dot', '·'));
+    foot.appendChild(el('span', 'lim-eta lim-eta--ok', 'жетеді'));
   }
 }
 
@@ -1159,8 +1204,8 @@ function renderMini() {
   // Сақинаның ортасында да ЖҰМСАЛҒАН пайыз тұрады — доғамен бірдей бағытта.
   const ring = (root, lim) => {
     if (!lim) { setRing(root, 0, '—', '—'); return; }
-    const left = countdown(lim.resetsAt);
-    setRing(root, lim.percent, Math.round(lim.percent) + '%', left != null ? durTiny(left) : '—');
+    setRing(root, lim.percent, Math.round(lim.percent) + '%', '');
+    setRingSub(root, lim);
   };
   ring($('ring-5h'), l5);
   ring($('ring-week'), lw);
@@ -1200,8 +1245,7 @@ function tickTimes() {
       const lw = pickLimit(L.limits, ['weekly_all', 'seven_day']);
       const put = (root, lim) => {
         if (!root || !lim) return;
-        const left = countdown(lim.resetsAt);
-        setText(root.querySelector('.ring-reset'), left != null ? durTiny(left) : '—');
+        setRingSub(root, lim);
       };
       put($('ring-5h'), l5);
       put($('ring-week'), lw);

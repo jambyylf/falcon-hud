@@ -61,11 +61,13 @@ function demoLimits(now) {
         id: 'session:all', kind: 'session', label: '5 сағаттық сессия',
         percent: 92, remaining: 8,                    // ← қызыл әрі пульсациялайды
         resetsAt: now + 37 * MIN, order: 0,
+        runsOutAt: now + 14 * MIN,                    // ← болжам: жаңаруға жетпейді
       },
       {
         id: 'weekly_all:all', kind: 'weekly_all', label: 'Апталық (жалпы)',
         percent: 46, remaining: 54,
         resetsAt: now + 4 * 24 * 60 * MIN, order: 1,
+        willLast: true,                               // ← болжам: жетеді
       },
       {
         id: 'weekly_scoped:Opus', kind: 'weekly_scoped', label: 'Апталық — Opus',

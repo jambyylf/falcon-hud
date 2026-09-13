@@ -293,6 +293,8 @@ body[data-mode="compact"] .full { display: none; }
   line-height: 1;
 }
 .ring-reset { font-size: 8.5px; color: var(--ink-3); line-height: 1; }
+.ring-reset.lv-warn { color: var(--warn); font-weight: 600; }
+.ring-reset.lv-bad  { color: var(--bad);  font-weight: 600; }
 
 .mini-side {
   flex: 1 1 auto;
@@ -461,6 +463,12 @@ body[data-mode="compact"] .full { display: none; }
 .lim-pct.lv-bad  { color: var(--bad); }
 .lim-foot { font-size: 9.5px; color: var(--ink-3); }
 .lim-foot .dot { opacity: 0.5; margin: 0 4px; }
+
+/* Болжам: «осы қарқынмен қашан бітеді» */
+.lim-eta { font-weight: 600; font-variant-numeric: tabular-nums; }
+.lim-eta.lv-warn { color: var(--warn); }
+.lim-eta.lv-bad  { color: var(--bad); }
+.lim-eta--ok { color: var(--ink-3); font-weight: 500; }
 
 /* ─────────────────────────── 2. Токендер ─────────────────────────── */
 .seg {

@@ -14,6 +14,7 @@ const agents = require('./modules/agents');
 const limits = require('./modules/limits');
 const system = require('./modules/system');
 const history = require('./modules/history');
+const forecast = require('./modules/forecast');
 const telegram = require('./modules/telegram');
 const win = require('./modules/window');
 const demoData = require('./demo-data');
@@ -292,6 +293,13 @@ async function tickLimits(force) {
         })
       : claudeLimits;
 
+    // Пайыздың қалай өсіп келе жатқанын есте сақтап, «қашан бітеді» дегенді
+    // есептейміз. Демо режимде де нақты дерек жазылады — экранда ғана демо тұрады.
+    forecast.record(latest.limits.limits);
+    latest.limits = Object.assign({}, latest.limits, {
+      limits: forecast.annotate(latest.limits.limits),
+    });
+
     emit('limits', latest.limits);
     // Хабарлама тек НАҚТЫ дерекке шығады — демо режим жалған ескерту бермейді
     if (!demo.on && latest.limits && latest.limits.ok) {
@@ -465,6 +473,10 @@ function buildStatusText() {
       const mark = l.percent >= 80 ? '🔴' : (l.percent >= 50 ? '🟡' : '🟢');
       lines.push(mark + ' ' + tgEsc(l.label) + ' — <b>' + Math.round(l.percent) + '%</b>' +
         (left > 0 ? ' · ' + tgDur(left) + ' кейін' : ''));
+      // Осы қарқынмен жаңаруға дейін жетпейтін болса — соны айтамыз
+      if (l.runsOutAt && l.runsOutAt > now) {
+        lines.push('   <i>⚠️ осы қарқынмен ' + tgDur(l.runsOutAt - now) + ' ішінде бітеді</i>');
+      }
     }
   } else {
     lines.push('<b>Лимиттер</b> — дерек жоқ');
@@ -733,6 +745,8 @@ app.on('will-quit', () => {
   try {
     history.update(usage.rawEvents(), usage.eventCost);
   } catch { /* жазылмаса — маңызды емес */ }
+  // Лимит қарқыны да сақталсын — қайта қосқанда болжам нөлден басталмайды
+  try { forecast.saveNow(); } catch { /* маңызды емес */ }
   win.destroy();
 });
 
